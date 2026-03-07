@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom"
 import { clearAuth, getUserEmail, getUserRole, isAuthenticated } from "../../utils/auth"
 import "./FacturationAdmin.css"
 
+
+
+
 // ===== CONSTANTES =====
 const C = {
   DATE_OPTIONS: { weekday:'long', day:'numeric', month:'long', year:'numeric' },

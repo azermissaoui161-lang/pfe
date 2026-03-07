@@ -1,4 +1,4 @@
-// src/pages/stock/StockAdmin.jsx - Version optimisée
+// src/pages/stock/StockAdmin.jsx - Version optimisée avec module Fournisseurs
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { clearAuth, getUserEmail, getUserRole, isAuthenticated } from "../../utils/auth"
@@ -7,19 +7,19 @@ import "./StockAdmin.css"
 // ===== CONSTANTES =====
 const STATUS={IN_STOCK:"en stock",LOW_STOCK:"stock faible",OUT_OF_STOCK:"rupture"}
 const MV={IN:"entrée",OUT:"sortie"}
-const TABS={PRODUCTS:"products",CATEGORIES:"categories",MOVEMENTS:"movements",ALERTS:"alerts",REPORTS:"reports",SETTINGS:"settings"}
+const TABS={PRODUCTS:"products",CATEGORIES:"categories",MOVEMENTS:"movements",ALERTS:"alerts",REPORTS:"reports",SETTINGS:"settings",SUPPLIERS:"suppliers"}
 
 // ===== DONNÉES INITIALES =====
 const IC=[{id:1,name:"Électronique",description:"Produits électroniques",productCount:4},{id:2,name:"Mobilier",description:"Meubles de bureau",productCount:2},{id:3,name:"Accessoires",description:"Accessoires informatiques",productCount:2}]
 const IP=[
-  {id:1,name:"iPhone 13",category:"Électronique",stock:45,price:899,status:STATUS.IN_STOCK},
-  {id:2,name:"Samsung TV 4K",category:"Électronique",stock:12,price:699,status:STATUS.IN_STOCK},
-  {id:3,name:"Chaise de bureau",category:"Mobilier",stock:8,price:149,status:STATUS.LOW_STOCK},
-  {id:4,name:'Écran 27"',category:"Électronique",stock:0,price:299,status:STATUS.OUT_OF_STOCK},
-  {id:5,name:"Clavier mécanique",category:"Accessoires",stock:23,price:89,status:STATUS.IN_STOCK},
-  {id:6,name:"Souris sans fil",category:"Accessoires",stock:34,price:49,status:STATUS.IN_STOCK},
-  {id:7,name:"Table pliante",category:"Mobilier",stock:5,price:199,status:STATUS.LOW_STOCK},
-  {id:8,name:"Casque audio",category:"Accessoires",stock:18,price:129,status:STATUS.IN_STOCK}
+  {id:1,name:"iPhone 13",category:"Électronique",stock:45,price:899,status:STATUS.IN_STOCK, supplierId:1},
+  {id:2,name:"Samsung TV 4K",category:"Électronique",stock:12,price:699,status:STATUS.IN_STOCK, supplierId:2},
+  {id:3,name:"Chaise de bureau",category:"Mobilier",stock:8,price:149,status:STATUS.LOW_STOCK, supplierId:3},
+  {id:4,name:'Écran 27"',category:"Électronique",stock:0,price:299,status:STATUS.OUT_OF_STOCK, supplierId:2},
+  {id:5,name:"Clavier mécanique",category:"Accessoires",stock:23,price:89,status:STATUS.IN_STOCK, supplierId:1},
+  {id:6,name:"Souris sans fil",category:"Accessoires",stock:34,price:49,status:STATUS.IN_STOCK, supplierId:1},
+  {id:7,name:"Table pliante",category:"Mobilier",stock:5,price:199,status:STATUS.LOW_STOCK, supplierId:3},
+  {id:8,name:"Casque audio",category:"Accessoires",stock:18,price:129,status:STATUS.IN_STOCK, supplierId:2}
 ]
 const IM=[
   {id:1,date:"2026-02-10",product:"iPhone 13",productId:1,type:MV.IN,quantity:20,user:"admin@erp.com",note:"Réapprovisionnement"},
@@ -30,6 +30,14 @@ const IM=[
   {id:6,date:"2026-02-13",product:"Souris sans fil",productId:6,type:MV.OUT,quantity:8,user:"stock@erp.com",note:"Vente magasin"},
   {id:7,date:"2026-02-13",product:"Casque audio",productId:8,type:MV.IN,quantity:12,user:"admin@erp.com",note:"Nouveau stock"},
   {id:8,date:"2026-02-14",product:"Table pliante",productId:7,type:MV.OUT,quantity:2,user:"stock@erp.com",note:"Vente bureau"}
+]
+
+// ===== DONNÉES FOURNISSEURS =====
+const IS = [
+  {id:1,name:"Tech Distribution",contact:"Jean Dupont",email:"contact@techdistrib.fr",phone:"01 23 45 67 89",address:"15 Rue de l'Innovation, 75001 Paris",products:3,status:"actif",since:"2025-01-15",rating:4.5},
+  {id:2,name:"Global Electronics",contact:"Marie Martin",email:"sales@globalelec.com",phone:"01 98 76 54 32",address:"28 Avenue des Champs, 69000 Lyon",products:3,status:"actif",since:"2025-02-20",rating:4.8},
+  {id:3,name:"Mobilier Pro",contact:"Pierre Durand",email:"contact@mobilierpro.fr",phone:"03 45 67 89 12",address:"5 Rue du Commerce, 33000 Bordeaux",products:2,status:"actif",since:"2025-03-10",rating:4.2},
+  {id:4,name:"Accessoires Direct",contact:"Sophie Bernard",email:"commandes@accessoiresdirect.fr",phone:"04 56 78 91 23",address:"42 Rue de la Logistique, 44000 Nantes",products:0,status:"inactif",since:"2025-04-05",rating:3.5}
 ]
 
 // ===== COMPOSANTS RÉUTILISABLES =====
@@ -55,6 +63,16 @@ const FormField=({label,id,error,children})=>
     <label htmlFor={id}>{label}</label>{children}{error&&<span className="error-message">{error}</span>}
   </div>
 
+const RatingStars = ({rating}) => {
+  const stars = []
+  for(let i=1; i<=5; i++) {
+    stars.push(
+      <span key={i} style={{color: i <= rating ? '#fbbf24' : '#e2e8f0'}}>★</span>
+    )
+  }
+  return <div className="rating-stars">{stars}</div>
+}
+
 // ===== COMPOSANT PRINCIPAL =====
 function StockAdmin(){
   const n=useNavigate()
@@ -66,18 +84,19 @@ function StockAdmin(){
   const [sm,setSm]=useState({type:"",text:""}),[upd,setUpd]=useState(false)
   
   // États généraux
-  const [mod,setMod]=useState({category:false,product:false,movement:false,categoryProducts:false})
-  const [ec,setEc]=useState(null),[ep,setEp]=useState(null),[sc,setSc]=useState(null)
-  const [f,setF]=useState({movement:"all",productName:"",productCategory:"",productStatus:"",date:"",searchProduct:"",startDate:"",endDate:""})
+  const [mod,setMod]=useState({category:false,product:false,movement:false,categoryProducts:false,supplier:false,supplierProducts:false})
+  const [ec,setEc]=useState(null),[ep,setEp]=useState(null),[sc,setSc]=useState(null),[es,setEs]=useState(null)
+  const [f,setF]=useState({movement:"all",productName:"",productCategory:"",productStatus:"",date:"",searchProduct:"",startDate:"",endDate:"",supplierName:"",supplierStatus:"",supplierRating:""})
   const [spf,setSpf]=useState(false),[sdp,setSdp]=useState(false)
   
   // Données
-  const [cat,setCat]=useState(IC),[prod,setProd]=useState(IP),[mov,setMov]=useState(IM)
+  const [cat,setCat]=useState(IC),[prod,setProd]=useState(IP),[mov,setMov]=useState(IM),[supp,setSupp]=useState(IS)
   
   // Formulaires
   const [cf,setCf]=useState({name:"",description:""})
-  const [pf,setPf]=useState({name:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK})
+  const [pf,setPf]=useState({name:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK,supplierId:""})
   const [mf,setMf]=useState({productId:"",product:"",type:MV.IN,quantity:"",date:new Date().toISOString().split('T')[0],note:""})
+  const [sf,setSf]=useState({name:"",contact:"",email:"",phone:"",address:"",status:"actif",rating:4})
   const [fe,setFe]=useState({})
 
   // ===== AUTH =====
@@ -128,8 +147,10 @@ function StockAdmin(){
   // ===== FILTRES =====
   const fp=useMemo(()=>prod.filter(p=>(!f.productName||p.name.toLowerCase().includes(f.productName.toLowerCase()))&&(!f.productCategory||p.category===f.productCategory)&&(!f.productStatus||p.status===f.productStatus)),[prod,f])
   const fm=useMemo(()=>mov.filter(m=>(f.movement==='all'||m.type===f.movement)&&(!f.date||m.date===f.date)&&(!f.startDate||m.date>=f.startDate)&&(!f.endDate||m.date<=f.endDate)&&(!f.searchProduct||m.product.toLowerCase().includes(f.searchProduct.toLowerCase()))),[mov,f])
+  const fs=useMemo(()=>supp.filter(s=>(!f.supplierName||s.name.toLowerCase().includes(f.supplierName.toLowerCase()))&&(!f.supplierStatus||s.status===f.supplierStatus)&&(!f.supplierRating||s.rating>=parseFloat(f.supplierRating))),[supp,f])
+  
   const updateFilter=(k,v)=>setF(p=>({...p,[k]:v}))
-  const clearFilters=useCallback(()=>setF({movement:"all",productName:"",productCategory:"",productStatus:"",date:"",searchProduct:"",startDate:"",endDate:""}),[])
+  const clearFilters=useCallback(()=>setF({movement:"all",productName:"",productCategory:"",productStatus:"",date:"",searchProduct:"",startDate:"",endDate:"",supplierName:"",supplierStatus:"",supplierRating:""}),[])
 
   // ===== VALIDATIONS =====
   const vCat=useCallback(()=>{
@@ -142,6 +163,7 @@ function StockAdmin(){
     const e={}
     if(!pf.name.trim()) e.name="Nom requis";else if(pf.name.length>100) e.name="Max 100"
     if(!pf.category) e.category="Catégorie requise"
+    if(!pf.supplierId) e.supplierId="Fournisseur requis"
     if(pf.stock&&parseInt(pf.stock)<0) e.stock="Stock positif"
     if(pf.price&&parseInt(pf.price)<0) e.price="Prix positif"
     return e
@@ -153,11 +175,22 @@ function StockAdmin(){
     if(mf.type===MV.OUT&&mf.productId){const p=prod.find(p=>p.id===mf.productId);if(p&&parseInt(mf.quantity)>p.stock) e.quantity=`Stock insuffisant (${p.stock})`}
     return e
   },[mf,prod])
+  const vSupp=useCallback(()=>{
+    const e={}
+    if(!sf.name.trim()) e.name="Nom requis"
+    if(!sf.contact.trim()) e.contact="Contact requis"
+    if(!sf.email.trim()) e.email="Email requis"
+    else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sf.email)) e.email="Email invalide"
+    if(!sf.phone.trim()) e.phone="Téléphone requis"
+    if(sf.rating<1||sf.rating>5) e.rating="Note entre 1 et 5"
+    return e
+  },[sf])
 
   // ===== RESET FORMULAIRES =====
   const rCat=useCallback(()=>{setCf({name:"",description:""});setEc(null);setFe({})},[])
-  const rProd=useCallback(()=>{setPf({name:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK});setEp(null);setFe({})},[])
+  const rProd=useCallback(()=>{setPf({name:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK,supplierId:""});setEp(null);setFe({})},[])
   const rMv=useCallback(()=>{setMf({productId:"",product:"",type:MV.IN,quantity:"",date:new Date().toISOString().split('T')[0],note:""});setFe({})},[])
+  const rSupp=useCallback(()=>{setSf({name:"",contact:"",email:"",phone:"",address:"",status:"actif",rating:4});setEs(null);setFe({})},[])
 
   // ===== CRUD CATÉGORIES =====
   const hdlAddCat=useCallback(()=>{
@@ -184,29 +217,46 @@ function StockAdmin(){
   const hdlAddProd=useCallback(()=>{
     const e=vProd();if(Object.keys(e).length)return setFe(e)
     const stock=parseInt(pf.stock)||0
-    setProd([...prod,{id:prod.length+1,name:pf.name.trim(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock)}])
+    const newProd={id:prod.length+1,name:pf.name.trim(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock),supplierId:parseInt(pf.supplierId)}
+    setProd([...prod,newProd])
     setCat(cat.map(c=>c.name===pf.category?{...c,productCount:c.productCount+1}:c))
+    setSupp(supp.map(s=>s.id===parseInt(pf.supplierId)?{...s,products:s.products+1}:s))
     rProd();setMod(p=>({...p,product:false}))
-  },[prod,cat,pf,vProd,rProd])
+  },[prod,cat,supp,pf,vProd,rProd])
 
   const hdlUpdProd=useCallback(()=>{
     const e=vProd();if(Object.keys(e).length)return setFe(e)
-    const oldCat=prod.find(p=>p.id===ep.id).category,stock=parseInt(pf.stock)||0
-    setProd(prod.map(p=>p.id===ep.id?{...ep,name:pf.name.trim(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock)}:p))
+    const oldProd=prod.find(p=>p.id===ep.id)
+    const oldCat=oldProd.category
+    const oldSupplier=oldProd.supplierId
+    const stock=parseInt(pf.stock)||0
+    
+    setProd(prod.map(p=>p.id===ep.id?{...ep,name:pf.name.trim(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock),supplierId:parseInt(pf.supplierId)}:p))
+    
+    // Mise à jour compteurs catégories
     if(oldCat!==pf.category) setCat(cat.map(c=>{
       if(c.name===oldCat) return{...c,productCount:c.productCount-1}
       if(c.name===pf.category) return{...c,productCount:c.productCount+1}
       return c
     }))
+    
+    // Mise à jour compteurs fournisseurs
+    if(oldSupplier!==parseInt(pf.supplierId)) setSupp(supp.map(s=>{
+      if(s.id===oldSupplier) return{...s,products:s.products-1}
+      if(s.id===parseInt(pf.supplierId)) return{...s,products:s.products+1}
+      return s
+    }))
+    
     rProd();setMod(p=>({...p,product:false}))
-  },[prod,cat,ep,pf,vProd,rProd])
+  },[prod,cat,supp,ep,pf,vProd,rProd])
 
-  const hdlDelProd=useCallback((id,catName)=>{
+  const hdlDelProd=useCallback((id,catName,supplierId)=>{
     if(window.confirm("Supprimer ?")){
       setProd(prod.filter(p=>p.id!==id))
       setCat(cat.map(c=>c.name===catName?{...c,productCount:c.productCount-1}:c))
+      setSupp(supp.map(s=>s.id===supplierId?{...s,products:s.products-1}:s))
     }
-  },[prod,cat])
+  },[prod,cat,supp])
 
   // ===== CRUD MOUVEMENTS =====
   const hdlProdChange=useCallback(e=>{
@@ -237,9 +287,53 @@ function StockAdmin(){
     setMov(mov.filter(m=>m.id!==id))
   },[prod,mov])
 
+  // ===== CRUD FOURNISSEURS =====
+  const hdlAddSupp=useCallback(()=>{
+    const e=vSupp();if(Object.keys(e).length)return setFe(e)
+    setSupp([...supp,{
+      id:supp.length+1,
+      name:sf.name.trim(),
+      contact:sf.contact.trim(),
+      email:sf.email.trim(),
+      phone:sf.phone.trim(),
+      address:sf.address.trim(),
+      status:sf.status,
+      rating:parseFloat(sf.rating),
+      products:0,
+      since:new Date().toISOString().split('T')[0]
+    }])
+    rSupp();setMod(p=>({...p,supplier:false}))
+  },[supp,sf,vSupp,rSupp])
+
+  const hdlUpdSupp=useCallback(()=>{
+    const e=vSupp();if(Object.keys(e).length)return setFe(e)
+    setSupp(supp.map(s=>s.id===es.id?{
+      ...s,
+      name:sf.name.trim(),
+      contact:sf.contact.trim(),
+      email:sf.email.trim(),
+      phone:sf.phone.trim(),
+      address:sf.address.trim(),
+      status:sf.status,
+      rating:parseFloat(sf.rating)
+    }:s))
+    rSupp();setMod(p=>({...p,supplier:false}))
+  },[supp,es,sf,vSupp,rSupp])
+
+  const hdlDelSupp=useCallback((id)=>{
+    const hasProducts = prod.some(p=>p.supplierId===id)
+    if(hasProducts){
+      if(!window.confirm("Ce fournisseur a des produits associés. Supprimer quand même ?")) return
+    } else {
+      if(!window.confirm("Supprimer ce fournisseur ?")) return
+    }
+    setSupp(supp.filter(s=>s.id!==id))
+  },[supp,prod])
+
   // ===== ÉDITION =====
   const hdlEditCat=cat=>{setEc(cat);setCf({name:cat.name,description:cat.description||""});setMod(p=>({...p,category:true}))}
-  const hdlEditProd=prod=>{setEp(prod);setPf({name:prod.name,category:prod.category,stock:prod.stock.toString(),price:prod.price.toString(),status:prod.status});setMod(p=>({...p,product:true}))}
+  const hdlEditProd=prod=>{setEp(prod);setPf({name:prod.name,category:prod.category,stock:prod.stock.toString(),price:prod.price.toString(),status:prod.status,supplierId:prod.supplierId});setMod(p=>({...p,product:true}))}
+  const hdlEditSupp=supp=>{setEs(supp);setSf({name:supp.name,contact:supp.contact,email:supp.email,phone:supp.phone,address:supp.address||"",status:supp.status,rating:supp.rating});setMod(p=>({...p,supplier:true}))}
 
   if(load) return <div className="stock-loading"><div className="spinner"></div><p>Chargement...</p></div>
 
@@ -248,6 +342,7 @@ function StockAdmin(){
     {id:"dashboard",icon:"📊",label:"Dashboard Stock",isDashboard:true},
     {id:TABS.PRODUCTS,icon:"📦",label:"Produits"},
     {id:TABS.CATEGORIES,icon:"📑",label:"Catégories"},
+    {id:TABS.SUPPLIERS,icon:"🤝",label:"Fournisseurs"},
     {id:TABS.MOVEMENTS,icon:"🔄",label:"Mouvements"},
     {id:TABS.ALERTS,icon:"⚠️",label:"Alertes"},
     {id:TABS.REPORTS,icon:"📊",label:"Rapports"},
@@ -322,11 +417,28 @@ function StockAdmin(){
           
           <div className="products-table-container">
             <table className="products-table">
-              <thead><tr><th>Produit</th><th>Catégorie</th><th>Stock</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead>
-              <tbody>{fp.length?fp.map(p=><tr key={p.id}><td className="product-name">{p.name}</td><td>{p.category}</td><td className={p.stock===0?"text-danger":p.stock<10?"text-warning":""}><strong>{p.stock}</strong></td><td>{p.price} €</td><td><StatusBadge status={p.status}/></td><td><div className="action-buttons"><button className="btn-icon" onClick={()=>hdlEditProd(p)}>✏️</button><button className="btn-icon" onClick={()=>hdlDelProd(p.id,p.category)}>🗑️</button></div></td></tr>):<tr><td colSpan="6" className="no-data-row"><div className="no-data-message">Aucun produit</div></td></tr>}</tbody>
+              <thead><tr><th>Produit</th><th>Catégorie</th><th>Fournisseur</th><th>Stock</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead>
+              <tbody>{fp.length?fp.map(p=><tr key={p.id}>
+                <td className="product-name">{p.name}</td>
+                <td>{p.category}</td>
+                <td>{supp.find(s=>s.id===p.supplierId)?.name || "-"}</td>
+                <td className={p.stock===0?"text-danger":p.stock<10?"text-warning":""}><strong>{p.stock}</strong></td>
+                <td>{p.price} €</td>
+                <td><StatusBadge status={p.status}/></td>
+                <td><div className="action-buttons"><button className="btn-icon" onClick={()=>hdlEditProd(p)}>✏️</button><button className="btn-icon" onClick={()=>hdlDelProd(p.id,p.category,p.supplierId)}>🗑️</button></div></td>
+              </tr>):<tr><td colSpan="7" className="no-data-row"><div className="no-data-message">Aucun produit</div></td></tr>}</tbody>
             </table>
 
-            <div className="products-table-mobile">{fp.length?fp.map(p=><article key={p.id} className="product-card-mobile"><div className="product-card-header"><h3>{p.name}</h3><StatusBadge status={p.status}/></div><div className="product-card-body"><div><strong>Catégorie:</strong> {p.category}</div><div><strong>Stock:</strong> {p.stock}</div><div><strong>Prix:</strong> {p.price} €</div></div><div className="product-card-footer"><button onClick={()=>hdlEditProd(p)}>✏️</button><button onClick={()=>hdlDelProd(p.id,p.category)}>🗑️</button></div></article>):<div className="no-data-message">Aucun produit</div>}</div>
+            <div className="products-table-mobile">{fp.length?fp.map(p=><article key={p.id} className="product-card-mobile">
+              <div className="product-card-header"><h3>{p.name}</h3><StatusBadge status={p.status}/></div>
+              <div className="product-card-body">
+                <div><strong>Catégorie:</strong> {p.category}</div>
+                <div><strong>Fournisseur:</strong> {supp.find(s=>s.id===p.supplierId)?.name || "-"}</div>
+                <div><strong>Stock:</strong> {p.stock}</div>
+                <div><strong>Prix:</strong> {p.price} €</div>
+              </div>
+              <div className="product-card-footer"><button onClick={()=>hdlEditProd(p)}>✏️</button><button onClick={()=>hdlDelProd(p.id,p.category,p.supplierId)}>🗑️</button></div>
+            </article>):<div className="no-data-message">Aucun produit</div>}</div>
           </div>
         </div>}
 
@@ -334,6 +446,54 @@ function StockAdmin(){
         {tab===TABS.CATEGORIES&&<div className="categories-tab">
           <header className="tab-header"><h2>📑 Catégories</h2><button className="btn-primary" onClick={()=>{rCat();setMod(p=>({...p,category:true}))}}>+ Nouvelle</button></header>
           <div className="categories-grid">{cat.map(c=><article key={c.id} className="category-card"><div className="category-icon">📁</div><div className="category-info"><h3>{c.name}</h3><p>{c.description}</p><div className="category-stats">{c.productCount?<button className="product-count-link" onClick={()=>{setSc(c);setMod(p=>({...p,categoryProducts:true}))}}>📦 <strong>{c.productCount}</strong> produits →</button>:<span>📦 0 produit</span>}</div></div><div className="category-actions"><button className="btn-icon" onClick={()=>hdlEditCat(c)}>✏️</button><button className="btn-icon" onClick={()=>hdlDelCat(c.id,c.name)}>🗑️</button></div></article>)}</div>
+        </div>}
+
+        {/* Fournisseurs */}
+        {tab===TABS.SUPPLIERS&&<div className="suppliers-tab">
+          <header className="tab-header">
+            <h2>🤝 Fournisseurs</h2>
+            <div className="header-buttons">
+              <button className="btn-toggle-filters" onClick={()=>setSpf(!spf)}>{spf?"Masquer":"Afficher"} filtres 🔍</button>
+              <button className="btn-primary" onClick={()=>{rSupp();setMod(p=>({...p,supplier:true}))}}>+ Nouveau fournisseur</button>
+            </div>
+          </header>
+          
+          {spf&&<div className="suppliers-search-bar">
+            <div className="search-row">
+              <FormField label="🔍 Nom" id="search-supp-name"><input type="text" placeholder="Nom..." value={f.supplierName} onChange={e=>updateFilter('supplierName',e.target.value)} className="search-input"/></FormField>
+              <FormField label="📊 Statut" id="search-supp-status"><select value={f.supplierStatus} onChange={e=>updateFilter('supplierStatus',e.target.value)} className="search-input"><option value="">Tous</option><option value="actif">Actif</option><option value="inactif">Inactif</option></select></FormField>
+              <FormField label="⭐ Note min" id="search-supp-rating"><select value={f.supplierRating} onChange={e=>updateFilter('supplierRating',e.target.value)} className="search-input"><option value="">Toutes</option><option value="5">5 étoiles</option><option value="4">4+ étoiles</option><option value="3">3+ étoiles</option></select></FormField>
+              {(f.supplierName||f.supplierStatus||f.supplierRating)&&<button className="btn-clear-filters" onClick={()=>{updateFilter('supplierName','');updateFilter('supplierStatus','');updateFilter('supplierRating','')}}>✖ Effacer</button>}
+            </div>
+            <div className="search-results-info">{fs.length} fournisseur(s)</div>
+          </div>}
+          
+          <div className="suppliers-grid">
+            {fs.length?fs.map(s=><article key={s.id} className={`supplier-card ${s.status==='inactif'?'inactive':''}`}>
+              <div className="supplier-header">
+                <div className="supplier-icon">{s.status==='actif'?'🤝':'🤝'}</div>
+                <div className="supplier-status" style={{background:s.status==='actif'?'#c6f6d5':'#fed7d7',color:s.status==='actif'?'#22543d':'#742a2a'}}>
+                  {s.status}
+                </div>
+              </div>
+              <div className="supplier-info">
+                <h3>{s.name}</h3>
+                <div className="supplier-rating"><RatingStars rating={s.rating}/> <span>({s.rating})</span></div>
+                <p><strong>Contact:</strong> {s.contact}</p>
+                <p><strong>Email:</strong> <a href={`mailto:${s.email}`}>{s.email}</a></p>
+                <p><strong>Tél:</strong> {s.phone}</p>
+                {s.address&&<p><strong>Adresse:</strong> {s.address}</p>}
+                <p><strong>Depuis:</strong> {new Date(s.since).toLocaleDateString('fr-FR')}</p>
+                <div className="supplier-products">
+                  {s.products?<button className="product-count-link" onClick={()=>{setEs(s);setMod(p=>({...p,supplierProducts:true}))}}>📦 <strong>{s.products}</strong> produits →</button>:<span>📦 Aucun produit</span>}
+                </div>
+              </div>
+              <div className="supplier-actions">
+                <button className="btn-icon" onClick={()=>hdlEditSupp(s)}>✏️</button>
+                <button className="btn-icon" onClick={()=>hdlDelSupp(s.id)}>🗑️</button>
+              </div>
+            </article>):<div className="no-data-message">Aucun fournisseur</div>}
+          </div>
         </div>}
 
         {/* Mouvements */}
@@ -358,8 +518,21 @@ function StockAdmin(){
 
           <div className="movements-table-container">
             <table className="movements-table">
-              <thead><tr><th>Date</th><th>Produit</th><th>Type</th><th>Qté</th><th>Note</th><th>Utilisateur</th><th>Actions</th></tr></thead>
-              <tbody>{fm.length?fm.map(m=><tr key={m.id}><td><time dateTime={m.date}>{new Date(m.date).toLocaleDateString('fr-FR')}</time></td><td className="product-name">{m.product}</td><td><span className={`movement-type ${m.type}`} style={{background:m.type===MV.IN?"#c6f6d5":"#fed7d7",color:m.type===MV.IN?"#22543d":"#742a2a"}}>{m.type===MV.IN?"⬆️ Entrée":"⬇️ Sortie"}</span></td><td className={m.type===MV.IN?"text-success":"text-danger"}><strong>{m.quantity}</strong></td><td className="movement-note">{m.note||"-"}</td><td>{m.user}</td><td><button className="btn-icon" onClick={()=>hdlDelMv(m.id)}>🗑️</button></td></tr>):<tr><td colSpan="7" className="no-data-row"><div className="no-data-message">Aucun mouvement</div></td></tr>}</tbody>
+              <thead><tr><th>Date</th><th>Produit</th><th>Fournisseur</th><th>Type</th><th>Qté</th><th>Note</th><th>Utilisateur</th><th>Actions</th></tr></thead>
+              <tbody>{fm.length?fm.map(m=>{
+                const product = prod.find(p=>p.id===m.productId)
+                const supplier = product ? supp.find(s=>s.id===product.supplierId) : null
+                return <tr key={m.id}>
+                  <td><time dateTime={m.date}>{new Date(m.date).toLocaleDateString('fr-FR')}</time></td>
+                  <td className="product-name">{m.product}</td>
+                  <td>{supplier?.name || '-'}</td>
+                  <td><span className={`movement-type ${m.type}`} style={{background:m.type===MV.IN?"#c6f6d5":"#fed7d7",color:m.type===MV.IN?"#22543d":"#742a2a"}}>{m.type===MV.IN?"⬆️ Entrée":"⬇️ Sortie"}</span></td>
+                  <td className={m.type===MV.IN?"text-success":"text-danger"}><strong>{m.quantity}</strong></td>
+                  <td className="movement-note">{m.note||"-"}</td>
+                  <td>{m.user}</td>
+                  <td><button className="btn-icon" onClick={()=>hdlDelMv(m.id)}>🗑️</button></td>
+                </tr>
+              }):<tr><td colSpan="8" className="no-data-row"><div className="no-data-message">Aucun mouvement</div></td></tr>}</tbody>
             </table>
           </div>
         </div>}
@@ -368,7 +541,7 @@ function StockAdmin(){
         {tab===TABS.ALERTS&&<div className="alerts-tab">
           <h2>⚠️ Alertes stock</h2>
           <div className="alerts-container">
-            {[{title:"Stock faible",products:prod.filter(p=>p.stock>0&&p.stock<10),icon:"⚠️",action:"Réapprovisionner"},{title:"Rupture",products:prod.filter(p=>p.stock===0),icon:"❌",action:"Commander"}].map(s=><section key={s.title} className="alerts-section"><h3>{s.title}</h3><div className="alerts-list">{s.products.length?s.products.map(p=><article key={p.id} className={`alert-item ${s.title==="Stock faible"?"warning":"danger"}`}><div className="alert-icon">{s.icon}</div><div className="alert-content"><strong>{p.name}</strong><span>{s.title==="Stock faible"?`Stock: ${p.stock}`:"Stock épuisé"}</span></div><button className="btn-small" onClick={()=>{setMf({productId:p.id,product:p.name,type:MV.IN,quantity:"10",date:new Date().toISOString().split('T')[0],note:s.title==="Stock faible"?"Réapprovisionnement":"Commande"});setMod(prev=>({...prev,movement:true}))}}>{s.action}</button></article>):<p className="no-alerts">Aucun</p>}</div></section>)}
+            {[{title:"Stock faible",products:prod.filter(p=>p.stock>0&&p.stock<10),icon:"⚠️",action:"Réapprovisionner"},{title:"Rupture",products:prod.filter(p=>p.stock===0),icon:"❌",action:"Commander"}].map(s=><section key={s.title} className="alerts-section"><h3>{s.title}</h3><div className="alerts-list">{s.products.length?s.products.map(p=><article key={p.id} className={`alert-item ${s.title==="Stock faible"?"warning":"danger"}`}><div className="alert-icon">{s.icon}</div><div className="alert-content"><strong>{p.name}</strong><span>{s.title==="Stock faible"?`Stock: ${p.stock}`:"Stock épuisé"}</span><small>Fournisseur: {supp.find(s=>s.id===p.supplierId)?.name || '-'}</small></div><button className="btn-small" onClick={()=>{setMf({productId:p.id,product:p.name,type:MV.IN,quantity:"10",date:new Date().toISOString().split('T')[0],note:s.title==="Stock faible"?"Réapprovisionnement":"Commande"});setMod(prev=>({...prev,movement:true}))}}>{s.action}</button></article>):<p className="no-alerts">Aucun</p>}</div></section>)}
           </div>
         </div>}
 
@@ -376,7 +549,7 @@ function StockAdmin(){
         {tab===TABS.REPORTS&&<div className="reports-tab">
           <h2>📊 Rapports</h2>
           <div className="reports-grid">
-            {[{icon:"📦",title:"État des stocks",desc:"Inventaire complet"},{icon:"🔄",title:"Mouvements",desc:"Historique"},{icon:"⚠️",title:"Alertes",desc:"Produits sous seuil"},{icon:"💰",title:"Valeur du stock",desc:"Évaluation financière"}].map((r,i)=><article key={i} className="report-card"><div className="report-icon">{r.icon}</div><div className="report-content"><h3>{r.title}</h3><p>{r.desc}</p><button className="btn-outline">PDF</button></div></article>)}
+            {[{icon:"📦",title:"État des stocks",desc:"Inventaire complet"},{icon:"🤝",title:"Fournisseurs",desc:"Liste et évaluations"},{icon:"🔄",title:"Mouvements",desc:"Historique"},{icon:"⚠️",title:"Alertes",desc:"Produits sous seuil"},{icon:"💰",title:"Valeur du stock",desc:"Évaluation financière"}].map((r,i)=><article key={i} className="report-card"><div className="report-icon">{r.icon}</div><div className="report-content"><h3>{r.title}</h3><p>{r.desc}</p><button className="btn-outline">PDF</button></div></article>)}
           </div>
         </div>}
 
@@ -416,19 +589,56 @@ function StockAdmin(){
     <Modal isOpen={mod.product} onClose={()=>{setMod(p=>({...p,product:false}));rProd()}} title={ep?'✏️ Modifier':'➕ Nouveau produit'} onConfirm={ep?hdlUpdProd:hdlAddProd} confirmText={ep?'Modifier':'Ajouter'}>
       <FormField label="Nom" id="prod-name" error={fe.name}><input type="text" value={pf.name} onChange={e=>setPf({...pf,name:e.target.value})} autoFocus/></FormField>
       <FormField label="Catégorie" id="prod-cat" error={fe.category}><select value={pf.category} onChange={e=>setPf({...pf,category:e.target.value})}><option value="">Sélectionner</option>{cat.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></FormField>
+      <FormField label="Fournisseur" id="prod-supplier" error={fe.supplierId}><select value={pf.supplierId} onChange={e=>setPf({...pf,supplierId:e.target.value})}><option value="">Sélectionner</option>{supp.filter(s=>s.status==='actif').map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></FormField>
       <div className="form-row"><FormField label="Stock" id="prod-stock" error={fe.stock}><input type="number" min="0" value={pf.stock} onChange={e=>setPf({...pf,stock:e.target.value})}/></FormField><FormField label="Prix (€)" id="prod-price" error={fe.price}><input type="number" min="0" value={pf.price} onChange={e=>setPf({...pf,price:e.target.value})}/></FormField></div>
     </Modal>
 
     <Modal isOpen={mod.movement} onClose={()=>{setMod(p=>({...p,movement:false}));rMv()}} title="➕ Nouveau mouvement" onConfirm={hdlAddMv} confirmText="Ajouter">
-      <FormField label="Produit" id="mvmt-prod" error={fe.productId}><select value={mf.productId} onChange={hdlProdChange}><option value="">Sélectionner</option>{prod.map(p=><option key={p.id} value={p.id}>{p.name} ({p.stock})</option>)}</select></FormField>
+      <FormField label="Produit" id="mvmt-prod" error={fe.productId}><select value={mf.productId} onChange={hdlProdChange}><option value="">Sélectionner</option>{prod.map(p=><option key={p.id} value={p.id}>{p.name} ({p.stock}) - {supp.find(s=>s.id===p.supplierId)?.name}</option>)}</select></FormField>
       <div className="form-row"><FormField label="Type" id="mvmt-type"><select value={mf.type} onChange={e=>setMf({...mf,type:e.target.value})}><option value={MV.IN}>⬆️ Entrée</option><option value={MV.OUT}>⬇️ Sortie</option></select></FormField><FormField label="Quantité" id="mvmt-qty" error={fe.quantity}><input type="number" min="1" value={mf.quantity} onChange={e=>setMf({...mf,quantity:e.target.value})}/></FormField></div>
       <FormField label="Date" id="mvmt-date"><input type="date" value={mf.date} onChange={e=>setMf({...mf,date:e.target.value})}/></FormField>
       <FormField label="Note" id="mvmt-note"><textarea value={mf.note} onChange={e=>setMf({...mf,note:e.target.value})} rows="2"/></FormField>
       {mf.productId&&mf.type===MV.OUT&&<div className="stock-warning">⚠️ Stock: {prod.find(p=>p.id===mf.productId)?.stock}</div>}
     </Modal>
 
+    <Modal isOpen={mod.supplier} onClose={()=>{setMod(p=>({...p,supplier:false}));rSupp()}} title={es?'✏️ Modifier fournisseur':'➕ Nouveau fournisseur'} onConfirm={es?hdlUpdSupp:hdlAddSupp} confirmText={es?'Modifier':'Ajouter'}>
+      <FormField label="Nom entreprise" id="supp-name" error={fe.name}><input type="text" value={sf.name} onChange={e=>setSf({...sf,name:e.target.value})} autoFocus/></FormField>
+      <FormField label="Personne de contact" id="supp-contact" error={fe.contact}><input type="text" value={sf.contact} onChange={e=>setSf({...sf,contact:e.target.value})}/></FormField>
+      <div className="form-row">
+        <FormField label="Email" id="supp-email" error={fe.email}><input type="email" value={sf.email} onChange={e=>setSf({...sf,email:e.target.value})}/></FormField>
+        <FormField label="Téléphone" id="supp-phone" error={fe.phone}><input type="tel" value={sf.phone} onChange={e=>setSf({...sf,phone:e.target.value})}/></FormField>
+      </div>
+      <FormField label="Adresse" id="supp-address"><textarea value={sf.address} onChange={e=>setSf({...sf,address:e.target.value})} rows="2"/></FormField>
+      <div className="form-row">
+        <FormField label="Statut" id="supp-status"><select value={sf.status} onChange={e=>setSf({...sf,status:e.target.value})}><option value="actif">Actif</option><option value="inactif">Inactif</option></select></FormField>
+        <FormField label="Note (1-5)" id="supp-rating" error={fe.rating}><input type="number" min="1" max="5" step="0.1" value={sf.rating} onChange={e=>setSf({...sf,rating:e.target.value})}/></FormField>
+      </div>
+    </Modal>
+
     <Modal isOpen={mod.categoryProducts} onClose={()=>setMod(p=>({...p,categoryProducts:false}))} title={`📁 ${sc?.name}`} showConfirm={false}>
-      {sc&&<><div className="category-info-header"><p>{sc.description}</p><p><strong>{sc.productCount}</strong> produit(s)</p></div><div className="category-products-list">{prod.filter(p=>p.category===sc.name).length?<table className="products-table"><thead><tr><th>Produit</th><th>Stock</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{prod.filter(p=>p.category===sc.name).map(p=><tr key={p.id}><td className="product-name">{p.name}</td><td className={p.stock===0?"text-danger":p.stock<10?"text-warning":""}><strong>{p.stock}</strong></td><td>{p.price} €</td><td><StatusBadge status={p.status}/></td><td><button className="btn-icon" onClick={()=>{setMod(p=>({...p,categoryProducts:false}));hdlEditProd(p)}}>✏️</button><button className="btn-icon" onClick={()=>{setMod(p=>({...p,categoryProducts:false}));setTab(TABS.MOVEMENTS);updateFilter('searchProduct',p.name)}}>🔄</button></td></tr>)}</tbody></table>:<div className="no-data-message">Aucun produit</div>}</div><div className="modal-footer-extra"><button className="btn-primary" onClick={()=>{setMod(p=>({...p,categoryProducts:false}));setTab(TABS.PRODUCTS);updateFilter('productCategory',sc.name);setSpf(true)}}>Voir dans Produits</button></div></>}
+      {sc&&<><div className="category-info-header"><p>{sc.description}</p><p><strong>{sc.productCount}</strong> produit(s)</p></div><div className="category-products-list">{prod.filter(p=>p.category===sc.name).length?<table className="products-table"><thead><tr><th>Produit</th><th>Fournisseur</th><th>Stock</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{prod.filter(p=>p.category===sc.name).map(p=><tr key={p.id}>
+        <td className="product-name">{p.name}</td>
+        <td>{supp.find(s=>s.id===p.supplierId)?.name || '-'}</td>
+        <td className={p.stock===0?"text-danger":p.stock<10?"text-warning":""}><strong>{p.stock}</strong></td>
+        <td>{p.price} €</td>
+        <td><StatusBadge status={p.status}/></td>
+        <td><button className="btn-icon" onClick={()=>{setMod(p=>({...p,categoryProducts:false}));hdlEditProd(p)}}>✏️</button></td>
+      </tr>)}</tbody></table>:<div className="no-data-message">Aucun produit</div>}</div><div className="modal-footer-extra"><button className="btn-primary" onClick={()=>{setMod(p=>({...p,categoryProducts:false}));setTab(TABS.PRODUCTS);updateFilter('productCategory',sc.name);setSpf(true)}}>Voir dans Produits</button></div></>}
+    </Modal>
+
+    <Modal isOpen={mod.supplierProducts} onClose={()=>setMod(p=>({...p,supplierProducts:false}))} title={`🤝 ${es?.name}`} showConfirm={false}>
+      {es&&<><div className="supplier-info-header">
+        <p><strong>Contact:</strong> {es.contact} | {es.email} | {es.phone}</p>
+        <p><strong>Note:</strong> <RatingStars rating={es.rating}/> ({es.rating})</p>
+        <p><strong>{es.products}</strong> produit(s) fourni(s)</p>
+      </div><div className="supplier-products-list">{prod.filter(p=>p.supplierId===es.id).length?<table className="products-table"><thead><tr><th>Produit</th><th>Catégorie</th><th>Stock</th><th>Prix</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{prod.filter(p=>p.supplierId===es.id).map(p=><tr key={p.id}>
+        <td className="product-name">{p.name}</td>
+        <td>{p.category}</td>
+        <td className={p.stock===0?"text-danger":p.stock<10?"text-warning":""}><strong>{p.stock}</strong></td>
+        <td>{p.price} €</td>
+        <td><StatusBadge status={p.status}/></td>
+        <td><button className="btn-icon" onClick={()=>{setMod(p=>({...p,supplierProducts:false}));hdlEditProd(p)}}>✏️</button></td>
+      </tr>)}</tbody></table>:<div className="no-data-message">Aucun produit de ce fournisseur</div>}</div><div className="modal-footer-extra"><button className="btn-primary" onClick={()=>{setMod(p=>({...p,supplierProducts:false}));setTab(TABS.PRODUCTS);updateFilter('productName','');setSpf(false)}}>Voir tous les produits</button></div></>}
     </Modal>
   </div>
 }
