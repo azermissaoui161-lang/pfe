@@ -65,6 +65,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   console.log('🔥 LOGIN EXÉCUTÉ - req.url:', req.url);
   console.log('   req.body:', req.body);
+  
   try {
     const { email, password } = req.body;
 
@@ -141,121 +142,41 @@ exports.logout = async (req, res) => {
   }
 };
 
-// @desc    Récupérer profil
-// @route   GET /api/auth/me
-exports.getMe = async (req, res) => {
+// @desc    Rafraîchir le token
+// @route   POST /api/auth/refresh-token
+exports.refreshToken = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    res.json({ success: true, data: user });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Refresh token requis' 
+      });
+    }
 
-// @desc    Mettre à jour le profil (email/mot de passe)
-// @route   PUT /api/auth/profile
-exports.updateProfile = async (req, res) => {
-  try {
-    const { newEmail, currentPassword, newPassword } = req.body;
-    const userId = req.user.id;
-
-    // Récupérer l'utilisateur avec le mot de passe
-    const user = await User.findById(userId).select('+password');
+    // Vérifier le refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    
+    const user = await User.findById(decoded.id);
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(401).json({ 
         success: false, 
         message: 'Utilisateur non trouvé' 
       });
     }
 
-    // Variables pour suivre les modifications
-    let modifications = [];
+    // Générer un nouveau token
+    const newToken = user.generateToken();
 
-    // 1. CHANGEMENT D'EMAIL
-    if (newEmail && newEmail !== user.email) {
-      // Vérifier si le nouvel email existe déjà
-      const existingUser = await User.findOne({ email: newEmail });
-      if (existingUser) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Cet email est déjà utilisé' 
-        });
-      }
-      
-      user.email = newEmail;
-      modifications.push('email');
-    }
-
-    // 2. CHANGEMENT DE MOT DE PASSE
-    if (newPassword) {
-      // Vérifier que le mot de passe actuel est fourni
-      if (!currentPassword) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Le mot de passe actuel est requis pour changer le mot de passe' 
-        });
-      }
-
-      // Vérifier le mot de passe actuel
-      const isMatch = await user.comparePassword(currentPassword);
-      if (!isMatch) {
-        return res.status(401).json({ 
-          success: false, 
-          message: 'Mot de passe actuel incorrect' 
-        });
-      }
-
-      // Mettre à jour le mot de passe (le middleware pre-save le hashera)
-      user.password = newPassword;
-      modifications.push('mot de passe');
-    }
-
-    // Si aucune modification
-    if (modifications.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Aucune modification demandée' 
-      });
-    }
-
-    // Sauvegarder les modifications
-    await user.save();
-
-    // Générer un nouveau token (optionnel)
-    const token = user.generateToken();
-
-    // Journaliser la modification
-    await AuditLog.create({
-      user: user._id,
-      action: 'UPDATE',
-      entity: 'USER',
-      entityId: user._id,
-      details: { 
-        modifications,
-        email: user.email 
-      },
-      ipAddress: req.ip
+    res.json({
+      success: true,
+      token: newToken
     });
-
-    res.json({ 
-      success: true, 
-      message: `Profil mis à jour avec succès (${modifications.join(', ')})`,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        department: user.department
-      },
-      token // Optionnel: renvoyer un nouveau token
-    });
-
   } catch (error) {
-    console.error('❌ Erreur updateProfile:', error);
-    res.status(500).json({ 
+    res.status(401).json({ 
       success: false, 
-      message: 'Erreur serveur lors de la mise à jour du profil' 
+      message: 'Refresh token invalide' 
     });
   }
 };

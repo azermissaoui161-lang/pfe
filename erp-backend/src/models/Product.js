@@ -1,97 +1,82 @@
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Le nom du produit est requis'],
-    trim: true
-  },
-  sku: {
-    type: String,
-    required: [true, 'Le code SKU est requis'],
-    unique: true,
-    uppercase: true,
-    trim: true
-  },
-  barcode: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
-  description: {
-    type: String,
-    trim: true
-  },
-  category: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category',
-    required: [true, 'La catégorie est requise']
-  },
-  supplier: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Supplier'
-  },
-  purchasePrice: {
-    type: Number,
+  name: { 
+    type: String, 
     required: true,
-    min: [0, 'Le prix d\'achat ne peut pas être négatif']
+    trim: true,
+    maxlength: 100
   },
-  sellingPrice: {
-    type: Number,
+  category: { 
+    type: String, 
     required: true,
-    min: [0, 'Le prix de vente ne peut pas être négatif']
+    trim: true
   },
-  taxRate: {
-    type: Number,
-    default: 20,
-    enum: [0, 5.5, 10, 20]
+  stock: { 
+    type: Number, 
+    default: 0, 
+    min: 0 
   },
-  margin: {
-    type: Number,
-    default: 0
+  price: { 
+    type: Number, 
+    required: true, 
+    min: 0 
   },
-  currentStock: {
-    type: Number,
-    default: 0,
-    min: 0
+  supplierId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Supplier', 
+    required: true,
+    index: true
   },
-  alertThreshold: {
-    type: Number,
+  minStock: { 
+    type: Number, 
     default: 5,
     min: 0
   },
-  unit: {
-    type: String,
-    enum: ['pièce', 'kg', 'litre', 'mètre', 'boîte', 'palette'],
-    default: 'pièce'
+  createdAt: { 
+    type: Date, 
+    default: Date.now,
+    index: true
   },
-  location: String,
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
   }
 }, {
-  timestamps: true
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
+// Index pour les performances
+productSchema.index({ name: 1 });
+productSchema.index({ category: 1 });
+productSchema.index({ stock: 1 });
+productSchema.index({ supplierId: 1, createdAt: -1 });
+
+// Middleware pre-save
 productSchema.pre('save', function(next) {
-  if (this.purchasePrice && this.sellingPrice) {
-    this.margin = ((this.sellingPrice - this.purchasePrice) / this.purchasePrice) * 100;
-  }
+  this.updatedAt = Date.now();
   next();
 });
 
-productSchema.index({ name: 'text', sku: 'text' });
-productSchema.index({ category: 1 });
-productSchema.index({ currentStock: 1 });
+// Virtual pour le statut
+productSchema.virtual('status').get(function() {
+  if (this.stock === 0) return 'rupture';
+  if (this.stock < this.minStock) return 'stock faible';
+  return 'en stock';
+});
 
-productSchema.methods.isLowStock = function() {
-  return this.currentStock <= this.alertThreshold;
+// Méthode utilitaire
+productSchema.methods.updateStock = function(quantity) {
+  this.stock += quantity;
+  return this.save();
+};
+
+// Méthode statique pour les alertes
+productSchema.statics.findLowStock = function() {
+  return this.find({
+    $expr: { $lte: ['$stock', '$minStock'] }
+  }).populate('supplierId', 'name email');
 };
 
 module.exports = mongoose.model('Product', productSchema);

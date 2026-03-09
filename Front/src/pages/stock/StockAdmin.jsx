@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { clearAuth, getUserEmail, getUserRole, isAuthenticated } from "../../utils/auth"
+import userService from '../../services/userService'; 
 import "./StockAdmin.css"
 
 // ===== CONSTANTES =====

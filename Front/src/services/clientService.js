@@ -13,6 +13,11 @@ export const clientService = {
     }
   },
 
+  // Alias pour compatibilité avec FacturationAdmin
+  getClients: async (params = {}) => {
+    return clientService.getAll(params);
+  },
+
   // Récupérer un client par ID
   getById: async (id) => {
     try {

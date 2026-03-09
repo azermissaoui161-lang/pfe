@@ -1,210 +1,477 @@
+const mongoose = require('mongoose');
 const StockMovement = require('../models/StockMovement');
 const Product = require('../models/Product');
-const AuditLog = require('../models/AuditLog');
 
-// @desc    Créer un mouvement de stock
-// @route   POST /api/stock/movements
-const createStockMovement = async (req, res) => {
+/**
+ * Formater un mouvement pour le frontend
+ */
+const formatMovement = (movement) => ({
+  id: movement._id,
+  date: movement.date.toISOString().split('T')[0],
+  product: movement.product,
+  productId: movement.productId?._id || movement.productId,
+  type: movement.type,
+  quantity: movement.quantity,
+  user: movement.user,
+  note: movement.note || '',
+  reason: movement.reason
+});
+
+/**
+ * Gérer les erreurs de manière sécurisée
+ */
+const handleError = (error, res, defaultMessage = 'Erreur serveur') => {
+  console.error(`❌ ${defaultMessage}:`, error);
+  const message = process.env.NODE_ENV === 'production' 
+    ? defaultMessage 
+    : error.message;
+  res.status(500).json({ message });
+};
+
+// ===== GET /api/stock =====
+exports.getAll = async (req, res) => {
   try {
-    const { productId, type, quantity, reason, reference, notes } = req.body;
-
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: 'Produit non trouvé' });
-    }
-
-    const stockBefore = product.currentStock;
-    let stockAfter = stockBefore;
-
-    // Calculer le nouveau stock
-    if (type === 'entrée') {
-      stockAfter = stockBefore + quantity;
-    } else if (type === 'sortie') {
-      if (stockBefore < quantity) {
-        return res.status(400).json({ message: 'Stock insuffisant' });
-      }
-      stockAfter = stockBefore - quantity;
-    } else {
-      // Ajustement
-      stockAfter = quantity; // quantity devient le nouveau stock
-    }
-
-    // Mettre à jour le produit
-    product.currentStock = stockAfter;
-    await product.save();
-
-    // Créer le mouvement
-    const movement = await StockMovement.create({
-      product: productId,
+    const { 
+      page = 1, 
+      limit = 100, 
+      productId, 
+      startDate, 
+      endDate, 
       type,
-      quantity: type === 'ajustement' ? stockAfter - stockBefore : quantity,
-      reason,
-      reference,
-      stockBefore,
-      stockAfter,
-      notes,
-      createdBy: req.user._id
-    });
+      sortBy = 'date',
+      sortOrder = 'desc'
+    } = req.query;
 
-    await AuditLog.create({
-      user: req.user._id,
-      action: 'CREATE',
-      entity: 'STOCK',
-      entityId: movement._id,
-      details: { 
-        product: product.name,
-        type,
-        quantity: movement.quantity,
-        stockBefore,
-        stockAfter
-      }
-    });
-
-    res.status(201).json(movement);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-};
-
-// @desc    Récupérer tous les mouvements
-// @route   GET /api/stock/movements
-const getStockMovements = async (req, res) => {
-  try {
-    const { productId, type, startDate, endDate } = req.query;
-    const query = {};
-
-    if (productId) query.product = productId;
-    if (type) query.type = type;
+    // Construire le filtre
+    const filter = {};
+    if (productId) filter.productId = productId;
+    if (type && type !== 'all') filter.type = type;
     if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+      filter.date = {};
+      if (startDate) filter.date.$gte = new Date(startDate);
+      if (endDate) filter.date.$lte = new Date(endDate);
     }
 
-    const movements = await StockMovement.find(query)
-      .populate('product', 'name sku')
-      .populate('createdBy', 'firstName lastName')
-      .sort({ createdAt: -1 });
+    // Construire le tri
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    res.json(movements);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-};
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-// @desc    Récupérer un mouvement par ID
-// @route   GET /api/stock/movements/:id
-const getStockMovementById = async (req, res) => {
-  try {
-    const movement = await StockMovement.findById(req.params.id)
-      .populate('product', 'name sku')
-      .populate('createdBy', 'firstName lastName');
-    
-    if (!movement) {
-      return res.status(404).json({ message: 'Mouvement non trouvé' });
-    }
-    
-    res.json(movement);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-};
-
-// @desc    Mettre à jour un mouvement
-// @route   PUT /api/stock/movements/:id
-const updateStockMovement = async (req, res) => {
-  try {
-    const movement = await StockMovement.findByIdAndUpdate(
-      req.params.id, 
-      req.body, 
-      { new: true }
-    );
-    
-    if (!movement) {
-      return res.status(404).json({ message: 'Mouvement non trouvé' });
-    }
-
-    await AuditLog.create({
-      user: req.user._id,
-      action: 'UPDATE',
-      entity: 'STOCK',
-      entityId: movement._id,
-      details: { product: movement.product }
-    });
-
-    res.json(movement);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-};
-
-// @desc    Supprimer un mouvement
-// @route   DELETE /api/stock/movements/:id
-const deleteStockMovement = async (req, res) => {
-  try {
-    const movement = await StockMovement.findByIdAndDelete(req.params.id);
-    
-    if (!movement) {
-      return res.status(404).json({ message: 'Mouvement non trouvé' });
-    }
-
-    await AuditLog.create({
-      user: req.user._id,
-      action: 'DELETE',
-      entity: 'STOCK',
-      entityId: req.params.id,
-      details: { product: movement.product }
-    });
-
-    res.json({ message: 'Mouvement supprimé avec succès' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-};
-
-// @desc    Statistiques de stock
-// @route   GET /api/stock/stats
-const getStockStats = async (req, res) => {
-  try {
-    const totalProducts = await Product.countDocuments({ isActive: true });
-    
-    const totalValue = await Product.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: null, total: { $sum: { $multiply: ['$currentStock', '$purchasePrice'] } } } }
+    // Exécuter en parallèle
+    const [movements, total] = await Promise.all([
+      StockMovement.find(filter)
+        .populate('productId', 'name category price supplierId')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      StockMovement.countDocuments(filter)
     ]);
 
-    const lowStock = await Product.countDocuments({
-      isActive: true,
-      $expr: { $lte: ['$currentStock', '$alertThreshold'] }
-    });
-
-    const outOfStock = await Product.countDocuments({
-      isActive: true,
-      currentStock: 0
-    });
+    // Statistiques pour la page
+    const stats = {
+      totalEntries: movements.filter(m => m.type === 'entrée').reduce((s, m) => s + m.quantity, 0),
+      totalExits: movements.filter(m => m.type === 'sortie').reduce((s, m) => s + Math.abs(m.quantity), 0)
+    };
 
     res.json({
-      totalProducts,
-      stockValue: totalValue[0]?.total || 0,
-      lowStockCount: lowStock,
-      outOfStockCount: outOfStock
+      movements: movements.map(m => ({
+        ...formatMovement(m),
+        productDetails: m.productId ? {
+          name: m.productId.name,
+          category: m.productId.category,
+          price: m.productId.price
+        } : null
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      },
+      stats
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    handleError(error, res, 'Erreur lors de la récupération des mouvements');
   }
 };
 
-module.exports = {
-  createStockMovement,
-  getStockMovements,
-  getStockMovementById,
-  updateStockMovement,
-  deleteStockMovement,
-  getStockStats
+// ===== POST /api/stock/entry =====
+exports.addEntry = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { productId, quantity, reason, notes } = req.body;
+
+    // Validations
+    if (!productId) {
+      return res.status(400).json({ message: 'ID produit requis' });
+    }
+    if (!quantity || parseInt(quantity) <= 0) {
+      return res.status(400).json({ message: 'Quantité valide requise' });
+    }
+
+    const product = await Product.findById(productId).session(session);
+    if (!product) {
+      throw new Error('Produit non trouvé');
+    }
+
+    // Créer le mouvement
+    const movement = new StockMovement({
+      productId: product._id,
+      product: product.name,
+      type: 'entrée',
+      quantity: parseInt(quantity),
+      user: req.user?.email || 'system',
+      note: notes || '',
+      reason: reason || 'adjustment',
+      createdBy: req.user?._id
+    });
+
+    await movement.save({ session });
+
+    // Mettre à jour le stock
+    const oldStock = product.stock;
+    product.stock += parseInt(quantity);
+    product.updatedAt = Date.now();
+    product.updatedBy = req.user?._id;
+    await product.save({ session });
+
+    await session.commitTransaction();
+
+    // Log pour audit
+    console.log(`✅ Entrée stock: ${quantity} x ${product.name} (${oldStock} → ${product.stock})`);
+
+    res.status(201).json({
+      movement: formatMovement(movement),
+      product: {
+        id: product._id,
+        name: product.name,
+        stock: product.stock,
+        status: product.status
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({ message: error.message });
+  } finally {
+    session.endSession();
+  }
+};
+
+// ===== POST /api/stock/exit =====
+exports.addExit = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { productId, quantity, reason, notes } = req.body;
+
+    // Validations
+    if (!productId) {
+      return res.status(400).json({ message: 'ID produit requis' });
+    }
+    if (!quantity || parseInt(quantity) <= 0) {
+      return res.status(400).json({ message: 'Quantité valide requise' });
+    }
+
+    const product = await Product.findById(productId).session(session);
+    if (!product) {
+      throw new Error('Produit non trouvé');
+    }
+
+    // Vérifier stock suffisant
+    const qty = parseInt(quantity);
+    if (product.stock < qty) {
+      return res.status(400).json({ 
+        message: 'Stock insuffisant',
+        currentStock: product.stock,
+        requested: qty
+      });
+    }
+
+    // Créer le mouvement
+    const movement = new StockMovement({
+      productId: product._id,
+      product: product.name,
+      type: 'sortie',
+      quantity: qty,
+      user: req.user?.email || 'system',
+      note: notes || '',
+      reason: reason || 'sale',
+      createdBy: req.user?._id
+    });
+
+    await movement.save({ session });
+
+    // Mettre à jour le stock
+    const oldStock = product.stock;
+    product.stock -= qty;
+    product.updatedAt = Date.now();
+    product.updatedBy = req.user?._id;
+    await product.save({ session });
+
+    await session.commitTransaction();
+
+    // Log pour audit
+    console.log(`✅ Sortie stock: ${qty} x ${product.name} (${oldStock} → ${product.stock})`);
+
+    res.status(201).json({
+      movement: formatMovement(movement),
+      product: {
+        id: product._id,
+        name: product.name,
+        stock: product.stock,
+        status: product.status
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({ message: error.message });
+  } finally {
+    session.endSession();
+  }
+};
+
+// ===== DELETE /api/stock/:id =====
+exports.delete = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+
+    // Validation ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID mouvement invalide' });
+    }
+
+    const movement = await StockMovement.findById(id).session(session);
+    if (!movement) {
+      return res.status(404).json({ message: 'Mouvement non trouvé' });
+    }
+
+    // Vérifier si le mouvement est récent (moins de 24h)
+    const hoursDiff = (Date.now() - movement.date) / (1000 * 60 * 60);
+    if (hoursDiff > 24) {
+      return res.status(400).json({ 
+        message: 'Impossible de supprimer un mouvement de plus de 24h',
+        movementDate: movement.date.toISOString().split('T')[0]
+      });
+    }
+
+    const product = await Product.findById(movement.productId).session(session);
+    if (!product) {
+      throw new Error('Produit associé non trouvé');
+    }
+
+    // Inverser l'effet du mouvement sur le stock
+    const oldStock = product.stock;
+    if (movement.type === 'entrée') {
+      product.stock -= movement.quantity;
+    } else {
+      product.stock += movement.quantity;
+    }
+
+    // Vérifier que le stock ne devient pas négatif
+    if (product.stock < 0) {
+      throw new Error('La suppression rendrait le stock négatif');
+    }
+
+    product.updatedAt = Date.now();
+    product.updatedBy = req.user?._id;
+    await product.save({ session });
+
+    await movement.deleteOne({ session });
+    await session.commitTransaction();
+
+    // Log pour audit
+    console.log(`✅ Mouvement supprimé: ${movement.type} ${movement.quantity} x ${product.name}`);
+
+    res.json({ 
+      message: 'Mouvement supprimé avec succès',
+      movementId: movement._id,
+      product: {
+        id: product._id,
+        name: product.name,
+        stock: product.stock
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({ message: error.message });
+  } finally {
+    session.endSession();
+  }
+};
+
+// ===== GET /api/stock/stats =====
+exports.getStats = async (req, res) => {
+  try {
+    const { period = 'month' } = req.query;
+
+    let groupBy;
+    switch (period) {
+      case 'day':
+        groupBy = { 
+          year: { $year: '$date' }, 
+          month: { $month: '$date' }, 
+          day: { $dayOfMonth: '$date' } 
+        };
+        break;
+      case 'week':
+        groupBy = { 
+          year: { $year: '$date' }, 
+          week: { $week: '$date' } 
+        };
+        break;
+      default: // month
+        groupBy = { 
+          year: { $year: '$date' }, 
+          month: { $month: '$date' } 
+        };
+    }
+
+    const stats = await StockMovement.aggregate([
+      {
+        $group: {
+          _id: groupBy,
+          entries: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'entrée'] }, '$quantity', 0]
+            }
+          },
+          exits: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'sortie'] }, '$quantity', 0]
+            }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': -1, '_id.month': -1 } }
+    ]);
+
+    // Statistiques globales
+    const globalStats = await StockMovement.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalEntries: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'entrée'] }, '$quantity', 0]
+            }
+          },
+          totalExits: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'sortie'] }, '$quantity', 0]
+            }
+          },
+          totalMovements: { $sum: 1 },
+          uniqueProducts: { $addToSet: '$productId' }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalEntries: 1,
+          totalExits: 1,
+          totalMovements: 1,
+          uniqueProducts: { $size: '$uniqueProducts' }
+        }
+      }
+    ]);
+
+    // Top produits les plus mouvementés
+    const topProducts = await StockMovement.aggregate([
+      {
+        $group: {
+          _id: '$productId',
+          totalMoved: { $sum: '$quantity' },
+          entries: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'entrée'] }, '$quantity', 0]
+            }
+          },
+          exits: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'sortie'] }, '$quantity', 0]
+            }
+          }
+        }
+      },
+      { $sort: { totalMoved: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'product'
+        }
+      },
+      {
+        $project: {
+          productId: '$_id',
+          productName: { $arrayElemAt: ['$product.name', 0] },
+          totalMoved: 1,
+          entries: 1,
+          exits: 1
+        }
+      }
+    ]);
+
+    res.json({
+      period,
+      stats,
+      global: globalStats[0] || {
+        totalEntries: 0,
+        totalExits: 0,
+        totalMovements: 0,
+        uniqueProducts: 0
+      },
+      topProducts
+    });
+  } catch (error) {
+    handleError(error, res, 'Erreur lors de la récupération des statistiques');
+  }
+};
+
+// ===== GET /api/stock/product/:productId =====
+exports.getByProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { limit = 50 } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ message: 'ID produit invalide' });
+    }
+
+    const movements = await StockMovement.find({ productId })
+      .sort('-date')
+      .limit(parseInt(limit))
+      .lean();
+
+    // Calculer les stats pour ce produit
+    const stats = {
+      totalEntries: movements
+        .filter(m => m.type === 'entrée')
+        .reduce((sum, m) => sum + m.quantity, 0),
+      totalExits: movements
+        .filter(m => m.type === 'sortie')
+        .reduce((sum, m) => sum + m.quantity, 0),
+      lastMovement: movements[0] || null
+    };
+
+    res.json({
+      productId,
+      movements: movements.map(formatMovement),
+      stats
+    });
+  } catch (error) {
+    handleError(error, res, 'Erreur lors de la récupération des mouvements du produit');
+  }
 };

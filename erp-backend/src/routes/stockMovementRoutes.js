@@ -1,26 +1,20 @@
+// stockMovementRoutes.js - Version COMPLÈTE
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
-const { authorize } = require('../middleware/roleMiddleware');
-const {
-  createStockMovement,  // ← Changé: createMovement → createStockMovement
-  getStockMovements,    // ← Changé: getAllMovements → getStockMovements
-  getStockStats         // ← Ajouté
-  // Les autres fonctions (getMovementById, updateMovement, deleteMovement) manquent
-} = require('../controllers/stockMovementController');
+const stockMovementController = require('../controllers/stockMovementController');
+const authMiddleware = require('../middleware/authMiddleware');
+const roleMiddleware = require('../middleware/roleMiddleware');
 
-router.use(protect);
+router.use(authMiddleware);
 
-router.get('/stats', authorize('admin_principal', 'admin_stock'), getStockStats); // ← Ajouté
+// Routes principales
+router.get('/', stockMovementController.getAll);
+router.get('/stats', roleMiddleware(['admin_principal']), stockMovementController.getStats); // ✅ À AJOUTER
+router.get('/product/:productId', stockMovementController.getByProduct); // ✅ À AJOUTER
 
-router.route('/')
-  .get(authorize('admin_principal', 'admin_stock'), getStockMovements)  // ← Changé
-  .post(authorize('admin_principal', 'admin_stock'), createStockMovement); // ← Changé
-
-// Commenté car les fonctions n'existent pas dans le contrôleur
-// router.route('/:id')
-//   .get(getMovementById)
-//   .put(authorize('admin_principal', 'admin_stock'), updateMovement)
-//   .delete(authorize('admin_principal'), deleteMovement);
+// Routes d'écriture
+router.post('/entry', roleMiddleware(['admin_principal', 'admin_stock']), stockMovementController.addEntry);
+router.post('/exit', roleMiddleware(['admin_principal', 'admin_stock']), stockMovementController.addExit);
+router.delete('/:id', roleMiddleware(['admin_principal']), stockMovementController.delete);
 
 module.exports = router;

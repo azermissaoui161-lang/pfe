@@ -1,158 +1,306 @@
+const mongoose = require('mongoose');
 const Supplier = require('../models/Supplier');
-const AuditLog = require('../models/AuditLog');
+const Product = require('../models/Product');
 
-// @desc    Créer un fournisseur
-// @route   POST /api/suppliers
-const createSupplier = async (req, res) => {
+/**
+ * Formatter un fournisseur pour le frontend
+ */
+const formatSupplier = (supplier) => ({
+  id: supplier._id,
+  name: supplier.name,
+  contact: supplier.contact,
+  email: supplier.email,
+  phone: supplier.phone,
+  address: supplier.address || '',
+  status: supplier.status,
+  rating: supplier.rating,
+  products: supplier.products || 0,
+  since: supplier.since.toISOString().split('T')[0]
+});
+
+/**
+ * Gérer les erreurs de manière sécurisée
+ */
+const handleError = (error, res, defaultMessage = 'Erreur serveur') => {
+  console.error(`❌ ${defaultMessage}:`, error);
+  const message = process.env.NODE_ENV === 'production' 
+    ? defaultMessage 
+    : error.message;
+  res.status(500).json({ message });
+};
+
+// ===== GET /api/suppliers =====
+exports.getAll = async (req, res) => {
   try {
-    const { name, email, phone, address, taxId, contactPerson, paymentTerms, notes } = req.body;
+    const { page = 1, limit = 50, status, search } = req.query;
 
-    const supplier = await Supplier.create({
-      name,
-      email,
-      phone,
-      address,
-      taxId,
-      contactPerson,
-      paymentTerms,
-      notes,
-      createdBy: req.user._id
+    // Construire le filtre
+    const filter = {};
+    if (status) filter.status = status;
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { contact: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [suppliers, total] = await Promise.all([
+      Supplier.find(filter)
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Supplier.countDocuments(filter)
+    ]);
+
+    res.json({
+      suppliers: suppliers.map(formatSupplier),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
     });
-
-    await AuditLog.create({
-      user: req.user._id,
-      action: 'CREATE',
-      entity: 'SUPPLIER',
-      entityId: supplier._id,
-      details: { name: supplier.name }
-    });
-
-    res.status(201).json(supplier);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    handleError(error, res, 'Erreur lors de la récupération des fournisseurs');
   }
 };
 
-// @desc    Récupérer tous les fournisseurs
-// @route   GET /api/suppliers
-const getSuppliers = async (req, res) => {
+// ===== GET /api/suppliers/:id =====
+exports.getOne = async (req, res) => {
   try {
-    const suppliers = await Supplier.find({ isActive: true })
-      .populate('createdBy', 'firstName lastName')
-      .sort({ createdAt: -1 });
+    const { id } = req.params;
 
-    res.json(suppliers);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-};
+    // Validation ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID fournisseur invalide' });
+    }
 
-// @desc    Récupérer un fournisseur par ID
-// @route   GET /api/suppliers/:id
-const getSupplierById = async (req, res) => {
-  try {
-    const supplier = await Supplier.findById(req.params.id)
-      .populate('createdBy', 'firstName lastName');
-    
+    const supplier = await Supplier.findById(id).lean();
     if (!supplier) {
       return res.status(404).json({ message: 'Fournisseur non trouvé' });
     }
-    
-    res.json(supplier);
+
+    // Récupérer les produits de ce fournisseur
+    const products = await Product.find({ supplierId: supplier._id })
+      .sort('-createdAt')
+      .lean();
+
+    res.json({
+      ...formatSupplier(supplier),
+      products: products.map(p => ({
+        id: p._id,
+        name: p.name,
+        category: p.category,
+        stock: p.stock,
+        price: p.price,
+        status: p.status
+      }))
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    handleError(error, res, 'Erreur lors de la récupération du fournisseur');
   }
 };
 
-// @desc    Mettre à jour un fournisseur
-// @route   PUT /api/suppliers/:id
-const updateSupplier = async (req, res) => {
+// ===== POST /api/suppliers =====
+exports.create = async (req, res) => {
   try {
-    const supplier = await Supplier.findById(req.params.id);
+    const { name, contact, email, phone, address, status, rating } = req.body;
 
-    if (!supplier) {
-      return res.status(404).json({ message: 'Fournisseur non trouvé' });
+    // Validations
+    if (!name) {
+      return res.status(400).json({ message: 'Le nom est requis' });
+    }
+    if (!contact) {
+      return res.status(400).json({ message: 'Le contact est requis' });
+    }
+    if (!email) {
+      return res.status(400).json({ message: "L'email est requis" });
+    }
+    if (!phone) {
+      return res.status(400).json({ message: 'Le téléphone est requis' });
     }
 
-    supplier.name = req.body.name || supplier.name;
-    supplier.email = req.body.email || supplier.email;
-    supplier.phone = req.body.phone || supplier.phone;
-    supplier.address = req.body.address || supplier.address;
-    supplier.taxId = req.body.taxId || supplier.taxId;
-    supplier.contactPerson = req.body.contactPerson || supplier.contactPerson;
-    supplier.paymentTerms = req.body.paymentTerms || supplier.paymentTerms;
-    supplier.notes = req.body.notes || supplier.notes;
+    // Vérifier si l'email existe déjà
+    const existing = await Supplier.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: 'Un fournisseur avec cet email existe déjà' });
+    }
+
+    const supplier = new Supplier({
+      name: name.trim(),
+      contact: contact.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone.trim(),
+      address: address?.trim() || '',
+      status: status || 'actif',
+      rating: parseFloat(rating) || 4,
+      products: 0
+    });
 
     await supplier.save();
 
-    await AuditLog.create({
-      user: req.user._id,
-      action: 'UPDATE',
-      entity: 'SUPPLIER',
-      entityId: supplier._id,
-      details: { name: supplier.name }
-    });
-
-    res.json(supplier);
+    res.status(201).json(formatSupplier(supplier));
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Erreur de validation',
+        errors: Object.values(error.errors).map(e => e.message)
+      });
+    }
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Un fournisseur avec cet email existe déjà' });
+    }
+    handleError(error, res, 'Erreur lors de la création du fournisseur');
   }
 };
 
-// @desc    Supprimer un fournisseur
-// @route   DELETE /api/suppliers/:id
-const deleteSupplier = async (req, res) => {
+// ===== PUT /api/suppliers/:id =====
+exports.update = async (req, res) => {
   try {
-    const supplier = await Supplier.findById(req.params.id);
-    
+    const { id } = req.params;
+
+    // Validation ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID fournisseur invalide' });
+    }
+
+    const supplier = await Supplier.findById(id);
     if (!supplier) {
       return res.status(404).json({ message: 'Fournisseur non trouvé' });
     }
 
-    await supplier.deleteOne();
+    const { name, contact, email, phone, address, status, rating } = req.body;
 
-    await AuditLog.create({
-      user: req.user._id,
-      action: 'DELETE',
-      entity: 'SUPPLIER',
-      entityId: req.params.id,
-      details: { name: supplier.name }
-    });
+    // Vérifier l'unicité de l'email si changé
+    if (email && email !== supplier.email) {
+      const existing = await Supplier.findOne({ 
+        email: email.toLowerCase().trim(),
+        _id: { $ne: id }
+      });
+      if (existing) {
+        return res.status(400).json({ message: 'Un fournisseur avec cet email existe déjà' });
+      }
+      supplier.email = email.toLowerCase().trim();
+    }
 
-    res.json({ message: 'Fournisseur supprimé avec succès' });
+    if (name) supplier.name = name.trim();
+    if (contact) supplier.contact = contact.trim();
+    if (phone) supplier.phone = phone.trim();
+    if (address !== undefined) supplier.address = address.trim();
+    if (status) supplier.status = status;
+    if (rating) supplier.rating = parseFloat(rating);
+
+    supplier.updatedAt = Date.now();
+    await supplier.save();
+
+    res.json(formatSupplier(supplier));
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Erreur de validation',
+        errors: Object.values(error.errors).map(e => e.message)
+      });
+    }
+    handleError(error, res, 'Erreur lors de la modification du fournisseur');
   }
 };
 
-// @desc    Statistiques des fournisseurs
-// @route   GET /api/suppliers/stats
-const getSupplierStats = async (req, res) => {
+// ===== DELETE /api/suppliers/:id =====
+exports.delete = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const total = await Supplier.countDocuments();
-    const active = await Supplier.countDocuments({ isActive: true });
-    
+    const { id } = req.params;
+
+    // Validation ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID fournisseur invalide' });
+    }
+
+    const supplier = await Supplier.findById(id).session(session);
+    if (!supplier) {
+      return res.status(404).json({ message: 'Fournisseur non trouvé' });
+    }
+
+    // Vérifier les produits associés
+    const productCount = await Product.countDocuments({ supplierId: id }).session(session);
+    if (productCount > 0) {
+      // Option 1: Empêcher la suppression
+      return res.status(400).json({
+        message: `Impossible de supprimer un fournisseur avec ${productCount} produit(s) associé(s)`,
+        productCount
+      });
+
+      // Option 2: Mettre à jour les produits (décommenter si souhaité)
+      // await Product.updateMany(
+      //   { supplierId: id },
+      //   { $set: { supplierId: null } },
+      //   { session }
+      // );
+    }
+
+    await supplier.deleteOne({ session });
+    await session.commitTransaction();
+
     res.json({
-      total,
-      active,
-      inactive: total - active
+      message: 'Fournisseur supprimé avec succès',
+      id: supplier._id,
+      name: supplier.name
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erreur serveur' });
+    await session.abortTransaction();
+    handleError(error, res, 'Erreur lors de la suppression du fournisseur');
+  } finally {
+    session.endSession();
   }
 };
 
-module.exports = {
-  createSupplier,
-  getSuppliers,
-  getSupplierById,
-  updateSupplier,
-  deleteSupplier,
-  getSupplierStats
+// ===== GET /api/suppliers/stats =====
+exports.getStats = async (req, res) => {
+  try {
+    const [totalSuppliers, activeSuppliers, totalProducts] = await Promise.all([
+      Supplier.countDocuments(),
+      Supplier.countDocuments({ status: 'actif' }),
+      Product.aggregate([
+        { $match: { supplierId: { $ne: null } } },
+        { $group: { _id: null, total: { $sum: 1 } } }
+      ])
+    ]);
+
+    const ratingStats = await Supplier.aggregate([
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          minRating: { $min: '$rating' },
+          maxRating: { $max: '$rating' }
+        }
+      }
+    ]);
+
+    const topSuppliers = await Supplier.find()
+      .sort('-products')
+      .limit(5)
+      .lean();
+
+    res.json({
+      global: {
+        totalSuppliers,
+        activeSuppliers,
+        inactiveSuppliers: totalSuppliers - activeSuppliers,
+        totalProducts: totalProducts[0]?.total || 0,
+        avgRating: ratingStats[0]?.avgRating || 0
+      },
+      topSuppliers: topSuppliers.map(formatSupplier)
+    });
+  } catch (error) {
+    handleError(error, res, 'Erreur lors de la récupération des statistiques');
+  }
 };

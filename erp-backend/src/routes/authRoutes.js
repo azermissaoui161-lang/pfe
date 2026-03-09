@@ -5,15 +5,12 @@ const {
   register,
   login,
   logout,
-  getMe,
-  updateProfile  // ← AJOUTER CETTE IMPORTATION
+  refreshToken  // ← À AJOUTER
 } = require('../controllers/authController');
 
 console.log('🔍 authRoutes chargé');
-console.log('   - login est une fonction?', typeof login);
-console.log('   - protect est une fonction?', typeof protect);
 
-// ✅ ROUTE DE TEST
+// Route de test
 router.get('/test', (req, res) => {
   res.json({ 
     success: true, 
@@ -22,22 +19,12 @@ router.get('/test', (req, res) => {
   });
 });
 
-
-
 // Routes publiques
 router.post('/register', register);
-console.log('   - Route /register configurée');
 router.post('/login', login);
-console.log('   - Route /login configurée');
+router.post('/refresh-token', refreshToken); // ← À AJOUTER
 
 // Routes protégées
 router.post('/logout', protect, logout);
-console.log('   - Route /logout configurée avec protect');
-router.get('/me', protect, getMe);
-console.log('   - Route /me configurée avec protect');
-
-// ✅ NOUVELLE ROUTE POUR METTRE À JOUR LE PROFIL
-router.put('/profile', protect, updateProfile);
-console.log('   - Route /profile configurée avec protect (PUT)');
 
 module.exports = router;
