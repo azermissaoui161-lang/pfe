@@ -1,32 +1,37 @@
-// src/routes/accountRoutes.js
+// routes/accountRoutes.js - Version CORRECTE pour les COMPTES BANCAIRES
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
-const { authorize } = require('../middleware/roleMiddleware');  // ← ✅ CORRIGÉ
+const { authorize } = require('../middleware/roleMiddleware');
 const {
-  getAllUsers,
-  getUserById,
-  createUser,
-  updateUser,
-  deleteUser,
-  toggleUserStatus
+  getAll,
+  getById,
+  create,
+  update,
+  delete: deleteAccount,
+  getBalance,
+  getTransactions,
+  getStats,
+  updateBalance
 } = require('../controllers/accountController');
 
-// Toutes les routes nécessitent authentification et rôle admin_principal
+// Toutes les routes nécessitent authentification
 router.use(protect);
-router.use(authorize('admin_principal'));  // ← ✅ Maintenant authorize est disponible
 
-// Routes principales
+// Routes spécifiques (AVANT /:id)
+router.get('/stats', authorize('admin_principal', 'admin_finance'), getStats);
+router.get('/:id/balance', getBalance);
+router.get('/:id/transactions', getTransactions);
+router.patch('/:id/balance', authorize('admin_principal', 'admin_finance'), updateBalance);
+
+// Routes CRUD principales
 router.route('/')
-  .get(getAllUsers)
-  .post(createUser);
+  .get(authorize('admin_principal', 'admin_finance'), getAll)
+  .post(authorize('admin_principal', 'admin_finance'), create);
 
 router.route('/:id')
-  .get(getUserById)
-  .put(updateUser)
-  .delete(deleteUser);
-
-// Route pour activer/désactiver un utilisateur
-router.patch('/:id/toggle', toggleUserStatus);
+  .get(getById)
+  .put(authorize('admin_principal', 'admin_finance'), update)
+  .delete(authorize('admin_principal'), deleteAccount);
 
 module.exports = router;

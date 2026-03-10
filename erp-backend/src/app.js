@@ -8,6 +8,7 @@ require('dotenv').config();
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
 const accountRoutes = require('./routes/accountRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const productRoutes = require('./routes/productRoutes');
@@ -20,6 +21,8 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const budgetRoutes = require('./routes/budgetRoutes');           // ✅ À AJOUTER
 const dashboardPrincipalRoutes = require('./routes/dashboardPrincipalRoutes');
 const dashboardFactureRoutes = require('./routes/dashboardFactureRoutes');
 const dashboardStockRoutes = require('./routes/dashboardStockRoutes');
@@ -55,7 +58,7 @@ app.use(morgan('dev'));
 
 // 6. Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes); 
+app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
@@ -68,12 +71,14 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/budgets', budgetRoutes);                          // ✅ À AJOUTER
 app.use('/api/dashboard/principal', dashboardPrincipalRoutes);
 app.use('/api/dashboard/facture', dashboardFactureRoutes);
 app.use('/api/dashboard/stock', dashboardStockRoutes);
 app.use('/api/dashboard/finance', dashboardFinanceRoutes);
 
-// 7. Routes de test (UNE SEULE FOIS)
+// 7. Routes de test
 app.get('/api/health', (req, res) => {
   res.json({ 
     success: true,
@@ -93,7 +98,7 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// 8. Error handler (UNE SEULE FOIS - doit être APRÈS les routes)
+// 8. Error handler
 app.use((err, req, res, next) => {
   console.error('❌ Erreur:', err.stack);
   res.status(500).json({ 
@@ -103,7 +108,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 9. 404 (doit être À LA FIN)
+// 9. 404 handler
 app.use((req, res) => {
   console.log('❌ Route non trouvée:', req.method, req.url);
   res.status(404).json({ 
