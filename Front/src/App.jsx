@@ -24,13 +24,13 @@ const ProtectedRoute = ({ children, allowedRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // ✅ Gestion des tableaux de rôles
+  //  Gestion des tableaux de rôles
   if (Array.isArray(allowedRole)) {
     if (!allowedRole.includes(userRole)) {
       return <Navigate to={getHomePathForRole(userRole)} replace />;
     }
   }
-  // ✅ Gestion des rôles uniques
+  //  Gestion des rôles uniques
   else if (allowedRole && userRole !== allowedRole) {
     return <Navigate to={getHomePathForRole(userRole)} replace />;
   }
@@ -88,7 +88,7 @@ function App() {
           }
         />
 
-        {/* ✅ ROUTE /finance/dashboard avec DOUBLE ACCÈS */}
+        {/* ROUTE /finance/dashboard avec DOUBLE ACCÈS */}
         <Route
           path="/finance/dashboard"
           element={
@@ -108,7 +108,7 @@ function App() {
           }
         />
 
-        {/* ✅ ROUTE /facturation/dashboard avec DOUBLE ACCÈS */}
+        {/*  ROUTE /facturation/dashboard avec DOUBLE ACCÈS */}
         <Route
           path="/facturation/dashboard"
           element={
@@ -128,7 +128,7 @@ function App() {
           }
         />
 
-        {/* ✅ ROUTE /stock/dashboard avec DOUBLE ACCÈS (UNE SEULE FOIS) */}
+        {/*  ROUTE /stock/dashboard avec DOUBLE ACCÈS (UNE SEULE FOIS) */}
         <Route
           path="/stock/dashboard"
           element={

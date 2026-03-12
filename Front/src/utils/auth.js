@@ -60,7 +60,7 @@ export const clearAuth = () => {
   localStorage.removeItem("userEmail");
 };
 
-// ✅ Fonctions utilitaires supplémentaires utiles
+//  Fonctions utilitaires supplémentaires utiles
 export const getUserName = () => {
   const user = getStoredUser();
   return user?.name || user?.username || null;

@@ -1,10 +1,14 @@
-// src/pages/admin/Admin.jsx
+// src/pages/admin/Admin.jsx - Version MongoDB
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { getUserEmail, getUserRole, isAuthenticated } from "../../utils/auth"
 import authService from "../../services/authService"
+// 🔌 IMPORTS DES SERVICES
+
+import { moduleService } from "../../services/moduleService" // 🔌 Service à créer
 import CreateAccount from "../../components/forms/CreateAccount"
 import AccountSettings from "../../components/forms/AccountSettings"
+import userService from "../../services/userService"
 import "./Admin.css"
 
 function Admin() {
@@ -14,6 +18,7 @@ function Admin() {
   const [userEmail, setUserEmail] = useState("")
   const [userName, setUserName] = useState("")
   const [loading, setLoading] = useState(true)
+  const [dataLoading, setDataLoading] = useState(false) // 🔌 NOUVEAU
   const [updating, setUpdating] = useState(false)
   
   // ===== ÉTATS DE L'INTERFACE =====
@@ -37,12 +42,10 @@ function Admin() {
   const [settingsMessage, setSettingsMessage] = useState({ type: "", text: "" })
   
   // ===== ÉTATS DES MODULES =====
-  const [baseModules, setBaseModules] = useState([
-    { id: 'facturation', name: 'Facturation', icon: '💰', color: '#667eea', count: 12, active: true, type: 'base', category: 'Gestion', createdAt: '2024-01-15' },
-    { id: 'stock', name: 'Stock', icon: '📦', color: '#9f7aea', count: 8, active: true, type: 'base', category: 'Inventaire', createdAt: '2024-01-15' },
-    { id: 'finance', name: 'Finance', icon: '💵', color: '#ed8936', count: 5, active: true, type: 'base', category: 'Comptabilité', createdAt: '2024-01-15' },
-  ])
+  // 🔌 CHARGEMENT DEPUIS BACKEND
+  const [baseModules, setBaseModules] = useState([])
   const [customModules, setCustomModules] = useState([])
+  const [modulesLoading, setModulesLoading] = useState(false)
 
   // ===== CONSTANTES =====
   const moduleColors = [
@@ -57,6 +60,66 @@ function Admin() {
     { id: 5, name: 'Gestion Facturation', path: '/facturation', icon: '📋', color: '#38a169', module: 'facturation' },
     { id: 6, name: 'Gestion Finance', path: '/finance', icon: '📄', color: '#ed8936', module: 'finance' },
   ]
+
+  // ===== EFFET D'INITIALISATION =====
+  useEffect(() => {
+    const role = getUserRole()
+    const email = getUserEmail()
+    
+    if (!isAuthenticated() || role !== "admin_principal") {
+      navigate("/login")
+    } else {
+      setUserEmail(email)
+      setUserName(email?.split('@')[0] || "Admin")
+      
+      loadUserProfile()
+      loadModules() // 🔌 Charger les modules
+      
+      setLoading(false)
+    }
+  }, [navigate])
+
+  // 🔌 NOUVELLE FONCTION : Charger le profil utilisateur
+  const loadUserProfile = async () => {
+    try {
+      const response = await userService.getProfile()
+      if (response.success) {
+        const userData = response.data
+        setUserSettings({
+          firstName: userData.firstName || "Admin",
+          lastName: userData.lastName || "",
+          email: userData.email || userEmail,
+          phone: userData.phone || "",
+          department: userData.department || "Direction",
+          role: userData.role || "admin_principal",
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        })
+      }
+    } catch (error) {
+      console.error("Erreur chargement profil:", error)
+    }
+  }
+
+  // 🔌 NOUVELLE FONCTION : Charger les modules
+  const loadModules = async () => {
+    setModulesLoading(true)
+    try {
+      const [baseRes, customRes] = await Promise.all([
+        moduleService.getBaseModules(),
+        moduleService.getCustomModules()
+      ])
+
+      if (baseRes.success) setBaseModules(baseRes.data || [])
+      if (customRes.success) setCustomModules(customRes.data || [])
+      
+    } catch (error) {
+      console.error("Erreur chargement modules:", error)
+    } finally {
+      setModulesLoading(false)
+    }
+  }
 
   // ===== DONNÉES DÉRIVÉES =====
   const allModules = [...baseModules, ...customModules]
@@ -128,25 +191,32 @@ function Admin() {
   }
 
   // ===== FONCTIONS DE GESTION DES MODULES =====
-  const toggleModule = (moduleId) => {
-    if (moduleId.startsWith('custom_')) {
-      setCustomModules(customModules.map(module => 
-        module.id === moduleId 
-          ? { ...module, active: !module.active }
-          : module
-      ))
-    } else {
-      setBaseModules(baseModules.map(module => 
-        module.id === moduleId 
-          ? { ...module, active: !module.active }
-          : module
-      ))
+  // 🔌 MODIFICATION : Appels backend
+  const toggleModule = async (moduleId) => {
+    try {
+      const module = allModules.find(m => m.id === moduleId)
+      if (!module) return
+
+      const response = await moduleService.toggleModule(moduleId, !module.active)
+      
+      if (response.success) {
+        await loadModules() // Recharger les modules
+      }
+    } catch (error) {
+      console.error("Erreur lors de la modification du module:", error)
     }
   }
 
-  const toggleAllModules = (activate) => {
-    setBaseModules(baseModules.map(module => ({ ...module, active: activate })))
-    setCustomModules(customModules.map(module => ({ ...module, active: activate })))
+  const toggleAllModules = async (activate) => {
+    try {
+      await Promise.all([
+        ...baseModules.map(m => moduleService.toggleModule(m.id, activate)),
+        ...customModules.map(m => moduleService.toggleModule(m.id, activate))
+      ])
+      await loadModules()
+    } catch (error) {
+      console.error("Erreur lors de la modification des modules:", error)
+    }
   }
 
   // ===== FONCTIONS DE NAVIGATION =====
@@ -180,6 +250,7 @@ function Admin() {
     setUserSettings(prev => ({ ...prev, [name]: value }))
   }
 
+  // 🔌 MODIFICATION : Sauvegarder dans le backend
   const handleSaveSettings = async () => {
     if (!userSettings.firstName) {
       setSettingsMessage({ type: "error", text: "Le prénom ne peut pas être vide" })
@@ -229,76 +300,74 @@ function Admin() {
     setUpdating(true)
     setSettingsMessage({ type: "info", text: "Mise à jour en cours..." })
 
-    setTimeout(() => {
-      localStorage.setItem('userFirstName', userSettings.firstName)
-      localStorage.setItem('userLastName', userSettings.lastName)
-      localStorage.setItem('userPhone', userSettings.phone)
-      localStorage.setItem('userDepartment', userSettings.department)
-      
-      if (userSettings.email !== userEmail) {
-        localStorage.setItem('userEmail', userSettings.email)
-        setUserEmail(userSettings.email)
-        setUserName(userSettings.firstName || userSettings.email.split('@')[0])
-      } else {
-        setUserName(userSettings.firstName || userName)
+    try {
+      const response = await userService.updateProfile({
+        firstName: userSettings.firstName,
+        lastName: userSettings.lastName,
+        email: userSettings.email,
+        phone: userSettings.phone,
+        department: userSettings.department
+      })
+
+      if (response.success) {
+        if (userSettings.newPassword) {
+          await userService.changePassword(userSettings.currentPassword, userSettings.newPassword)
+        }
+
+        localStorage.setItem('userFirstName', userSettings.firstName)
+        localStorage.setItem('userLastName', userSettings.lastName)
+        localStorage.setItem('userPhone', userSettings.phone)
+        localStorage.setItem('userDepartment', userSettings.department)
+        
+        if (userSettings.email !== userEmail) {
+          localStorage.setItem('userEmail', userSettings.email)
+          setUserEmail(userSettings.email)
+          setUserName(userSettings.firstName || userSettings.email.split('@')[0])
+        } else {
+          setUserName(userSettings.firstName || userName)
+        }
+        
+        setSettingsMessage({ type: "success", text: "Profil mis à jour avec succès !" })
+        setTimeout(() => setSettingsMessage({ type: "", text: "" }), 3000)
       }
-      
-      setSettingsMessage({ type: "success", text: "Profil mis à jour avec succès !" })
-      
-      setTimeout(() => setSettingsMessage({ type: "", text: "" }), 3000)
+    } catch (error) {
+      setSettingsMessage({ type: "error", text: error.message || "Erreur lors de la mise à jour" })
+    } finally {
       setUpdating(false)
-    }, 1500)
+    }
   }
 
   // ===== FONCTION DE CRÉATION DE COMPTE =====
-  const handleAccountCreated = (newUser) => {
-    const moduleId = `custom_${Date.now()}`
-    const colorIndex = customModules.length % moduleColors.length
-    
-    const newModule = {
-      id: moduleId,
-      name: newUser.firstName || newUser.name || 'Nouveau compte',
-      icon: getModuleIcon(newUser.role),
-      color: moduleColors[colorIndex],
-      count: 0,
-      active: true,
-      type: 'custom',
-      category: newUser.department || 'Général',
-      createdAt: new Date().toISOString().split('T')[0],
-      createdBy: newUser
+  // 🔌 MODIFICATION : Créer dans le backend
+  const handleAccountCreated = async (newUser) => {
+    try {
+      // Créer le module personnalisé
+      const moduleData = {
+        id: `custom_${Date.now()}`,
+        name: newUser.firstName || newUser.name || 'Nouveau compte',
+        icon: getModuleIcon(newUser.role),
+        color: moduleColors[customModules.length % moduleColors.length],
+        count: 0,
+        active: true,
+        type: 'custom',
+        category: newUser.department || 'Général',
+        createdBy: newUser.email,
+        createdAt: new Date().toISOString().split('T')[0]
+      }
+
+      const response = await moduleService.createCustomModule(moduleData)
+      
+      if (response.success) {
+        await loadModules()
+        setTimeout(() => handleBackToAccueil(), 2000)
+      }
+    } catch (error) {
+      console.error("Erreur lors de la création du module:", error)
     }
-    
-    setCustomModules(prev => [...prev, newModule])
-    setTimeout(() => handleBackToAccueil(), 2000)
   }
 
-  // ===== EFFET D'INITIALISATION =====
-  useEffect(() => {
-    const role = getUserRole()
-    const email = getUserEmail()
-    
-    if (!isAuthenticated() || role !== "admin_principal") {
-      navigate("/login")
-    } else {
-      setUserEmail(email)
-      setUserName(email?.split('@')[0] || "Admin")
-      
-      setUserSettings(prev => ({
-        ...prev,
-        email: email || "",
-        firstName: localStorage.getItem('userFirstName') || "Admin",
-        lastName: localStorage.getItem('userLastName') || "",
-        phone: localStorage.getItem('userPhone') || "",
-        department: localStorage.getItem('userDepartment') || "Direction",
-        role: role || "admin_principal"
-      }))
-      
-      setLoading(false)
-    }
-  }, [navigate])
-
   // ===== RENDU =====
-  if (loading) {
+  if (loading || modulesLoading) {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
@@ -309,7 +378,7 @@ function Admin() {
 
   return (
     <div style={styles.container}>
-      {/* Sidebar */}
+      {/* Sidebar (inchangée) */}
       <div style={{...styles.sidebar, width: sidebarCollapsed ? '80px' : '280px'}}>
         <div style={styles.sidebarHeader}>
           {!sidebarCollapsed && (
@@ -452,6 +521,7 @@ function Admin() {
         </div>
       </div>
 
+      {/* Main Content (inchangé) */}
       <div style={{...styles.mainContent, marginLeft: sidebarCollapsed ? '80px' : '280px'}}>
         {currentPage === 'accueil' && (
           <>
@@ -745,7 +815,7 @@ function Admin() {
   )
 }
 
-// ===== STYLES =====
+// ===== STYLES (inchangés) =====
 const styles = {
   container: {
     display: "flex",
@@ -1265,136 +1335,6 @@ const styles = {
   modulesFooterText: {
     fontSize: "0.85rem",
     color: "#718096"
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-    backdropFilter: "blur(5px)"
-  },
-  modalContent: {
-    background: "white",
-    borderRadius: "16px",
-    padding: "32px",
-    width: "400px",
-    maxWidth: "90%",
-    maxHeight: "90vh",
-    overflowY: "auto",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.2)"
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "24px"
-  },
-  modalTitle: {
-    fontSize: "1.5rem",
-    color: "#1a202c",
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    margin: 0
-  },
-  closeButton: {
-    background: "none",
-    border: "none",
-    fontSize: "1.5rem",
-    cursor: "pointer",
-    color: "#a0aec0"
-  },
-  messageBox: {
-    padding: "12px",
-    borderRadius: "8px",
-    marginBottom: "20px",
-    border: "1px solid"
-  },
-  settingsForm: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "24px"
-  },
-  formSection: {
-    borderBottom: "1px solid #e2e8f0",
-    paddingBottom: "20px"
-  },
-  sectionSubtitle: {
-    fontSize: "1.1rem",
-    color: "#2d3748",
-    margin: "0 0 12px 0"
-  },
-  sectionHint: {
-    fontSize: "0.85rem",
-    color: "#a0aec0",
-    margin: "-8px 0 16px 0"
-  },
-  formRow: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "12px",
-    marginBottom: "12px"
-  },
-  formGroup: {
-    marginBottom: "12px",
-    flex: 1
-  },
-  label: {
-    display: "block",
-    marginBottom: "6px",
-    fontWeight: 600,
-    color: "#4a5568",
-    fontSize: "0.9rem"
-  },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    border: "2px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "0.95rem",
-    outline: "none",
-    transition: "border-color 0.3s",
-    boxSizing: "border-box"
-  },
-  inputHelp: {
-    display: "block",
-    fontSize: "0.75rem",
-    color: "#a0aec0",
-    marginTop: "4px"
-  },
-  modalActions: {
-    display: "flex",
-    gap: "12px",
-    justifyContent: "flex-end",
-    marginTop: "24px",
-    borderTop: "1px solid #e2e8f0",
-    paddingTop: "20px"
-  },
-  cancelButton: {
-    padding: "10px 20px",
-    background: "white",
-    color: "#4a5568",
-    border: "2px solid #e2e8f0",
-    borderRadius: "8px",
-    fontSize: "0.95rem",
-    fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.3s"
-  },
-  saveButton: {
-    padding: "10px 20px",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "0.95rem",
-    fontWeight: 600,
-    transition: "all 0.3s"
   }
 }
 

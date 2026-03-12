@@ -1,94 +1,152 @@
+// src/services/financeService.js
 import api from './api';
 
 const financeService = {
-  // ===== TRANSACTIONS =====
-  getTransactions: async () => {
-    const response = await api.get('/transactions');
-    return response.data;
-  },
   
-  createTransaction: async (data) => {
-    const response = await api.post('/transactions', data);
-    return response.data;
-  },
+
+  // ===== ANALYSES FINANCIÈRES =====
   
-  updateTransaction: async (id, data) => {
-    const response = await api.put(`/transactions/${id}`, data);
-    return response.data;
-  },
-  
-  deleteTransaction: async (id) => {
-    const response = await api.delete(`/transactions/${id}`);
-    return response.data;
+  /**
+   * Récupère le flux de trésorerie
+   * @param {Object} params - Paramètres (period, startDate, endDate)
+   * @returns {Promise<Object>} Données de trésorerie
+   */
+  getCashFlow: async (params = {}) => {
+    try {
+      const response = await api.get('/finance/cashflow', { params });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getCashFlow:', error);
+      throw error;
+    }
   },
 
-  // ===== COMPTES =====
-  getAccounts: async () => {
-    const response = await api.get('/accounts');
-    return response.data;
-  },
-  
-  createAccount: async (data) => {
-    const response = await api.post('/accounts', data);
-    return response.data;
-  },
-  
-  updateAccount: async (id, data) => {
-    const response = await api.put(`/accounts/${id}`, data);
-    return response.data;
-  },
-  
-  deleteAccount: async (id) => {
-    const response = await api.delete(`/accounts/${id}`);
-    return response.data;
+  //????????????????????????????????????????
+  /**
+   * Récupère le compte de résultat
+   * @param {string} period - Période (monthly, quarterly, yearly)
+   * @returns {Promise<Object>} Compte de résultat
+   */
+  getProfitLoss: async (period = 'monthly') => {
+    try {
+      const response = await api.get('/finance/profit-loss', { 
+        params: { period } 
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getProfitLoss:', error);
+      throw error;
+    }
   },
 
-  // ===== BUDGETS =====
-  getBudgets: async () => {
-    const response = await api.get('/budgets');
-    return response.data;
-  },
-  
-  createBudget: async (data) => {
-    const response = await api.post('/budgets', data);
-    return response.data;
-  },
-  
-  updateBudget: async (id, data) => {
-    const response = await api.put(`/budgets/${id}`, data);
-    return response.data;
-  },
-  
-  deleteBudget: async (id) => {
-    const response = await api.delete(`/budgets/${id}`);
-    return response.data;
+  /**
+   * Récupère le bilan comptable
+   * @param {string} date - Date du bilan
+   * @returns {Promise<Object>} Bilan comptable
+   */
+  getBalanceSheet: async (date) => {
+    try {
+      const response = await api.get('/finance/balance-sheet', { 
+        params: { date } 
+      });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getBalanceSheet:', error);
+      throw error;
+    }
   },
 
-  // ===== RAPPORTS =====
-  getReports: async () => {
-    const response = await api.get('/reports');
-    return response.data;
-  },
-  
-  createReport: async (data) => {
-    const response = await api.post('/reports', data);
-    return response.data;
-  },
-  
-  updateReport: async (id, data) => {
-    const response = await api.put(`/reports/${id}`, data);
-    return response.data;
-  },
-  
-  deleteReport: async (id) => {
-    const response = await api.delete(`/reports/${id}`);
-    return response.data;
+  /**
+   * Récupère les ratios financiers
+   * @returns {Promise<Object>} Ratios financiers
+   */
+  getFinancialRatios: async () => {
+    try {
+      const response = await api.get('/finance/ratios');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getFinancialRatios:', error);
+      throw error;
+    }
   },
 
-  // ===== STATISTIQUES =====
-  getDashboardStats: async () => {
-    const response = await api.get('/finance/dashboard');
-    return response.data;
+  // ===== EXPORTS =====
+  
+  /**
+   * Exporte un rapport financier en PDF
+   * @param {string} type - Type de rapport (dashboard, cashflow, profit-loss, balance-sheet)
+   * @param {Object} params - Paramètres du rapport
+   * @returns {Promise<boolean>} Succès de l'export
+   */
+  exportToPDF: async (type, params = {}) => {
+    try {
+      const response = await api.get(`/finance/export/pdf/${type}`, {
+        params,
+        responseType: 'blob'
+      });
+      
+      const filename = `rapport-financier-${type}-${new Date().toISOString().split('T')[0]}.pdf`;
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Erreur exportToPDF:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Exporte un rapport financier en Excel
+   * @param {string} type - Type de rapport (dashboard, cashflow, profit-loss, balance-sheet)
+   * @param {Object} params - Paramètres du rapport
+   * @returns {Promise<boolean>} Succès de l'export
+   */
+  exportToExcel: async (type, params = {}) => {
+    try {
+      const response = await api.get(`/finance/export/excel/${type}`, {
+        params,
+        responseType: 'blob'
+      });
+      
+      const filename = `rapport-financier-${type}-${new Date().toISOString().split('T')[0]}.xlsx`;
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Erreur exportToExcel:', error);
+      throw error;
+    }
+  },
+
+  // ===== PRÉVISIONS =====
+  
+  /**
+   * Récupère les prévisions financières
+   * @param {Object} params - Paramètres (period, months)
+   * @returns {Promise<Object>} Données de prévision
+   */
+  getForecasts: async (params = {}) => {
+    try {
+      const response = await api.get('/finance/forecasts', { params });
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erreur getForecasts:', error);
+      throw error;
+    }
   }
 };
 

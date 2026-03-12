@@ -1,12 +1,13 @@
-// src/pages/dashboard/facturation/FacturationAdmin.jsx
+// src/pages/dashboard/facturation/FacturationAdmin.jsx - VERSION CORRIGÉE
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { clearAuth, getUserEmail, getUserRole, isAuthenticated } from "../../utils/auth"
+import { customerService } from "../../services/clientService" // ✅ export const
+import { orderService } from "../../services/orderService" // ✅ export const
+import { invoiceService } from "../../services/invoiceService" // ✅ export const
+import { reportService } from "../../services/reportService" // ✅ export const
+import userService from "../../services/userService" // ✅ CORRIGÉ (sans accolades)
 import "./FacturationAdmin.css"
-
-
-
-
 // ===== CONSTANTES =====
 const C = {
   DATE_OPTIONS: { weekday:'long', day:'numeric', month:'long', year:'numeric' },
@@ -20,29 +21,8 @@ const C = {
   TABS: { ORDERS:"orders", CLIENTS:"clients", INVOICES:"invoices", REPORTS:"reports", ARCHIVE:"archive", SETTINGS:"settings" }
 }
 
-// ===== DONNÉES DE DÉMONSTRATION =====
-const DATA = {
-  clients: Array.from({length:10},(_,i)=>(
-    {id:i+1,name:["SARL Dupont","EURL Martin","SAS Tech","Boulangerie Paris","Restaurant Le Chef","Garage Auto","Cabinet Médical","École Privée","Pharmacie Centrale","Coiffure Moderne"][i],
-     email:[`contact@dupont.fr`,`martin@eurl.fr`,`factures@tech.fr`,`compta@boulangerie.fr`,`compta@lechef.fr`,`factures@garage.fr`,`compta@medical.fr`,`facturation@ecole.fr`,`compta@pharmacie.fr`,`contact@coiffure.fr`][i],
-     phone:`01 ${String(Math.floor(Math.random()*90+10)).padStart(2,'0')} ${String(Math.floor(Math.random()*90+10)).padStart(2,'0')} ${String(Math.floor(Math.random()*90+10)).padStart(2,'0')} ${String(Math.floor(Math.random()*90+10)).padStart(2,'0')}`,
-     address:`${Math.floor(Math.random()*100)} Rue Example, 7500${i} Paris`,siret:`${i}${i}${i} ${i}${i}${i} ${i}${i}${i} 000${i}${i}`,
-     totalOrders:Math.floor(Math.random()*15),totalSpent:Math.random()*20000,lastOrder:`2026-02-${String(Math.floor(Math.random()*10+10)).padStart(2,'0')}`,status:i%3?"actif":"inactif"})),
-  orders: Array.from({length:12},(_,i)=>(
-    {id:`CMD-2026-${String(i+1).padStart(3,'0')}`,date:`2026-02-${String(Math.floor(Math.random()*10+10)).padStart(2,'0')}`,
-     client:["SARL Dupont","EURL Martin","SAS Tech","Boulangerie Paris","Coiffure Moderne","Restaurant Le Chef","Garage Auto","Cabinet Médical","École Privée","Pharmacie Centrale","SAS Tech","SARL Dupont"][i],
-     items:Math.floor(Math.random()*10+1),total:Math.random()*2000+100,status:C.ORDER_STATUSES[Math.floor(Math.random()*C.ORDER_STATUSES.length)],
-     paymentStatus:C.PAYMENT_STATUSES[Math.floor(Math.random()*C.PAYMENT_STATUSES.length)],invoiceId:Math.random()>0.5?`FACT-2026-${String(i+1).padStart(3,'0')}`:null})),
-  invoices: Array.from({length:10},(_,i)=>(
-    {id:`FACT-2026-${String(i+1).padStart(3,'0')}`,date:`2026-02-${String(Math.floor(Math.random()*10+10)).padStart(2,'0')}`,
-     orderId:`CMD-2026-${String(i+1).padStart(3,'0')}`,client:["SARL Dupont","EURL Martin","SAS Tech","Boulangerie Paris","Coiffure Moderne","Restaurant Le Chef","Garage Auto","Cabinet Médical","École Privée","Pharmacie Centrale"][i],
-     amount:Math.random()*2000+100,status:["payée","envoyée","brouillon","en retard","payée"][Math.floor(Math.random()*5)],
-     dueDate:`2026-03-${String(Math.floor(Math.random()*20+10)).padStart(2,'0')}`,archived:false})),
-  reports: Array.from({length:4},(_,i)=>(
-    {id:i+1,title:["Rapport financier mensuel","Top 10 clients","Analyse des commandes","Prévisions financières"][i],
-     description:"Description détaillée du rapport",type:C.REPORT_TYPES[i],date:`2026-02-${28-i}`,author:"admin_facture"})),
-  archiveLog: [{id:1,invoiceId:"FACT-2026-001",date:"2026-03-15",reason:"Période fiscale clôturée",archivedBy:"admin_facture",reference:"ARCH-2026-001"}]
-}
+// 🔌 SUPPRIMER LES DONNÉES DE DÉMONSTRATION
+// const DATA = { ... } ← À SUPPRIMER
 
 // ===== FONCTIONS UTILITAIRES =====
 const utils = {
@@ -85,11 +65,11 @@ export default function FacturationAdmin() {
   const [settingsMessage, setSettingsMessage] = useState({ type:"", text:"" })
   const [updating, setUpdating] = useState(false)
   const [tab,setTab] = useState(C.TABS.ORDERS)
-  const [clients,setClients] = useState(DATA.clients)
-  const [orders,setOrders] = useState(DATA.orders)
-  const [invoices,setInvoices] = useState(DATA.invoices)
-  const [reports,setReports] = useState(DATA.reports)
-  const [archiveLog,setArchiveLog] = useState(DATA.archiveLog)
+  const [clients,setClients] = useState([])
+  const [orders,setOrders] = useState([])
+  const [invoices,setInvoices] = useState([])
+  const [reports,setReports] = useState([])
+  const [archiveLog,setArchiveLog] = useState([])
   const [showArchive,setShowArchive] = useState(false)
   const [archiveModal,setArchiveModal] = useState({show:false,invoice:null})
   const [archiveFilters,setArchiveFilters] = useState({search:"",year:"all"})
@@ -100,6 +80,7 @@ export default function FacturationAdmin() {
   const [rForm,setRForm] = useState({title:"",description:"",type:"financier"})
   const [filters,setFilters] = useState({date:{start:"",end:""},search:""})
   const {notification,showNotification} = useNotification()
+  const [dataLoading, setDataLoading] = useState(false)
 
   // ===== EFFETS =====
   useEffect(() => {
@@ -109,18 +90,61 @@ export default function FacturationAdmin() {
     else {
       setUserRole(role)
       setEmail(e)
-      setUserSettings({
-        firstName: localStorage.getItem('factureFirstName') || (role==="admin_principal" ? "Admin" : "Gestionnaire"),
-        lastName: localStorage.getItem('factureLastName') || (role==="admin_principal" ? "Principal" : "Facturation"),
-        email: e || "",
-        phone: localStorage.getItem('facturePhone') || "",
-        department: localStorage.getItem('factureDepartment') || "Comptabilité",
-        role: role || "admin_facture",
-        currentPassword: '', newPassword: '', confirmPassword: ''
-      })
+      loadUserProfile()
+      loadAllData()
       setLoading(false)
     }
   }, [nav])
+
+  // 🔌 NOUVELLE FONCTION : Charger le profil utilisateur
+  const loadUserProfile = async () => {
+    try {
+      const response = await userService.getProfile()
+      if (response.success) {
+        const userData = response.data
+        setUserSettings({
+          firstName: userData.firstName || "Gestionnaire",
+          lastName: userData.lastName || "Facturation",
+          email: userData.email || "",
+          phone: userData.phone || "",
+          department: userData.department || "Comptabilité",
+          role: userData.role || "admin_facture",
+          currentPassword: '', newPassword: '', confirmPassword: ''
+        })
+      }
+    } catch (error) {
+      console.error("Erreur chargement profil:", error)
+    }
+  }
+
+  // 🔌 NOUVELLE FONCTION : Charger toutes les données
+  const loadAllData = async () => {
+    setDataLoading(true)
+    try {
+      // Charger en parallèle pour optimiser
+      const [clientsRes, ordersRes, invoicesRes, reportsRes] = await Promise.all([
+        customerService.getAll(),
+        orderService.getAll(),
+        invoiceService.getAll(),
+        reportService.getAll()
+      ])
+
+      if (clientsRes.success) setClients(clientsRes.data || [])
+      if (ordersRes.success) setOrders(ordersRes.data || [])
+      if (invoicesRes.success) setInvoices(invoicesRes.data || [])
+      if (reportsRes.success) setReports(reportsRes.data || [])
+      
+      // 🔌 Charger l'archive log (à créer dans le backend)
+      // const archiveRes = await invoiceService.getArchiveLog()
+      // if (archiveRes.success) setArchiveLog(archiveRes.data || [])
+      
+    } catch (error) {
+      console.error("Erreur chargement données:", error)
+      showNotification("Erreur de chargement des données", "error")
+    } finally {
+      setDataLoading(false)
+    }
+  }
 
   // ===== STATISTIQUES =====
   const stats = useMemo(() => ({
@@ -139,6 +163,7 @@ export default function FacturationAdmin() {
     setUserSettings({ ...userSettings, [name]: value })
   }
 
+  // 🔌 MODIFICATION : Sauvegarder les paramètres dans le backend
   const handleSaveSettings = async () => {
     if (!userSettings.firstName || !userSettings.lastName || !userSettings.email) {
       setSettingsMessage({ type: "error", text: "Prénom, nom et email sont requis" })
@@ -155,38 +180,42 @@ export default function FacturationAdmin() {
       return
     }
 
-    if (userSettings.newPassword || userSettings.confirmPassword || userSettings.currentPassword) {
-      if (!userSettings.currentPassword) {
-        setSettingsMessage({ type: "error", text: "Mot de passe actuel requis" })
-        return
-      }
-      if (userSettings.newPassword !== userSettings.confirmPassword) {
-        setSettingsMessage({ type: "error", text: "Les nouveaux mots de passe ne correspondent pas" })
-        return
-      }
-      if (userSettings.newPassword.length < 6) {
-        setSettingsMessage({ type: "error", text: "Le nouveau mot de passe doit contenir au moins 6 caractères" })
-        return
-      }
-    }
-
     setUpdating(true)
     setSettingsMessage({ type: "info", text: "Mise à jour en cours..." })
 
-    setTimeout(() => {
-      localStorage.setItem('factureFirstName', userSettings.firstName)
-      localStorage.setItem('factureLastName', userSettings.lastName)
-      localStorage.setItem('facturePhone', userSettings.phone)
-      localStorage.setItem('factureDepartment', userSettings.department)
-      
-      if (userSettings.email !== email) {
-        localStorage.setItem('userEmail', userSettings.email)
-        setEmail(userSettings.email)
+    try {
+      // Mise à jour du profil
+      const response = await userService.updateProfile({
+        firstName: userSettings.firstName,
+        lastName: userSettings.lastName,
+        email: userSettings.email,
+        phone: userSettings.phone,
+        department: userSettings.department
+      })
+
+      if (response.success) {
+        // Changement de mot de passe si demandé
+        if (userSettings.newPassword) {
+          await userService.changePassword(
+            userSettings.currentPassword,
+            userSettings.newPassword
+          )
+        }
+
+        setSettingsMessage({ type: "success", text: "Profil mis à jour avec succès !" })
+        if (userSettings.email !== email) {
+          localStorage.setItem('userEmail', userSettings.email)
+          setEmail(userSettings.email)
+        }
       }
-      
-      setSettingsMessage({ type: "success", text: "Profil mis à jour avec succès !" })
-      setTimeout(() => { setSettingsMessage({ type:"", text:"" }); setUpdating(false) }, 2000)
-    }, 1500)
+    } catch (error) {
+      setSettingsMessage({ type: "error", text: error.message || "Erreur lors de la mise à jour" })
+    } finally {
+      setTimeout(() => { 
+        setSettingsMessage({ type:"", text:"" }); 
+        setUpdating(false) 
+      }, 2000)
+    }
   }
 
   // ===== GESTION DES MODALES =====
@@ -209,26 +238,238 @@ export default function FacturationAdmin() {
   }
 
   // ===== CRUD CLIENTS =====
-  const handleAddClient = () => { if(!cForm.name.trim()) return; setClients([...clients,{id:clients.length+1,...cForm,totalOrders:0,totalSpent:0,lastOrder:new Date().toISOString().split('T')[0]}]); closeModal('client'); showNotification("Client ajouté","success") }
-  const handleUpdateClient = () => { if(!cForm.name.trim()) return; setClients(clients.map(c=>c.id===edit.data.id?{...c,...cForm}:c)); if(edit.data.name!==cForm.name) { setOrders(orders.map(o=>o.client===edit.data.name?{...o,client:cForm.name}:o)); setInvoices(invoices.map(i=>i.client===edit.data.name?{...i,client:cForm.name}:i)) } closeModal('client'); showNotification("Client modifié","success") }
-  const handleDeleteClient = (id,name) => { if(window.confirm(orders.filter(o=>o.client===name).length?"Ce client a des commandes. Supprimer ?":"Supprimer ce client ?")) { setClients(clients.filter(c=>c.id!==id)); showNotification("Client supprimé","warning") } }
+  // 🔌 MODIFICATION : Appels backend
+  const handleAddClient = async () => { 
+    if(!cForm.name.trim()) return; 
+    try {
+      const response = await customerService.create(cForm)
+      if (response.success) {
+        await loadAllData()
+        closeModal('client')
+        showNotification("Client ajouté","success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de l'ajout","error")
+    }
+  }
+
+  const handleUpdateClient = async () => { 
+    if(!cForm.name.trim()) return; 
+    try {
+      const response = await customerService.update(edit.data.id, cForm)
+      if (response.success) {
+        await loadAllData()
+        closeModal('client')
+        showNotification("Client modifié","success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la modification","error")
+    }
+  }
+
+  const handleDeleteClient = async (id,name) => { 
+    if(orders.filter(o=>o.client===name).length) {
+      if(!window.confirm("Ce client a des commandes. Supprimer ?")) return
+    } else {
+      if(!window.confirm("Supprimer ce client ?")) return
+    }
+    try {
+      const response = await customerService.delete(id)
+      if (response.success) {
+        await loadAllData()
+        showNotification("Client supprimé","warning")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la suppression","error")
+    }
+  }
 
   // ===== CRUD COMMANDES =====
-  const handleAddOrder = () => { if(!oForm.client||!oForm.total) return; const newOrder={id:utils.generateId('CMD-2026',orders),date:new Date().toISOString().split('T')[0],client:oForm.client,items:parseInt(oForm.items)||1,total:parseFloat(oForm.total),status:oForm.status,paymentStatus:oForm.paymentStatus,invoiceId:null}; setOrders([newOrder,...orders]); setClients(utils.updateClientStats(clients,oForm.client,parseFloat(oForm.total),'add')); closeModal('order'); showNotification("Commande créée","success") }
-  const handleUpdateOrder = () => { if(!oForm.client||!oForm.total) return; const old=orders.find(o=>o.id===edit.data.id); setOrders(orders.map(o=>o.id===edit.data.id?{...o,client:oForm.client,items:parseInt(oForm.items)||1,total:parseFloat(oForm.total),status:oForm.status,paymentStatus:oForm.paymentStatus}:o)); if(old.client!==oForm.client||old.total!==parseFloat(oForm.total)) { setClients(utils.updateClientStats(clients,old.client,old.total,'remove')); setClients(utils.updateClientStats(clients,oForm.client,parseFloat(oForm.total),'add')) } closeModal('order'); showNotification("Commande modifiée","success") }
-  const handleDeleteOrder = (id,client,total) => { if(window.confirm("Supprimer cette commande ?")) { setOrders(orders.filter(o=>o.id!==id)); setClients(utils.updateClientStats(clients,client,total,'remove')); showNotification("Commande supprimée","warning") } }
+  // 🔌 MODIFICATION : Appels backend
+  const handleAddOrder = async () => { 
+    if(!oForm.client||!oForm.total) return
+    try {
+      const orderData = {
+        client: oForm.client,
+        items: parseInt(oForm.items) || 1,
+        total: parseFloat(oForm.total),
+        status: oForm.status,
+        paymentStatus: oForm.paymentStatus
+      }
+      const response = await orderService.create(orderData)
+      if (response.success) {
+        await loadAllData()
+        closeModal('order')
+        showNotification("Commande créée","success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la création","error")
+    }
+  }
+
+  const handleUpdateOrder = async () => { 
+    if(!oForm.client||!oForm.total) return
+    try {
+      const orderData = {
+        client: oForm.client,
+        items: parseInt(oForm.items) || 1,
+        total: parseFloat(oForm.total),
+        status: oForm.status,
+        paymentStatus: oForm.paymentStatus
+      }
+      const response = await orderService.update(edit.data.id, orderData)
+      if (response.success) {
+        await loadAllData()
+        closeModal('order')
+        showNotification("Commande modifiée","success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la modification","error")
+    }
+  }
+
+  const handleDeleteOrder = async (id,client,total) => { 
+    if(!window.confirm("Supprimer cette commande ?")) return
+    try {
+      const response = await orderService.delete(id)
+      if (response.success) {
+        await loadAllData()
+        showNotification("Commande supprimée","warning")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la suppression","error")
+    }
+  }
 
   // ===== CRUD RAPPORTS =====
-  const handleAddReport = () => { if(!rForm.title.trim()||!rForm.description.trim()) return; setReports([...reports,{id:reports.length+1,title:rForm.title,description:rForm.description,type:rForm.type,date:new Date().toISOString().split('T')[0],author:userSettings.firstName||"admin_facture"}]); closeModal('report'); showNotification("Rapport ajouté","success") }
-  const handleUpdateReport = () => { if(!rForm.title.trim()||!rForm.description.trim()) return; setReports(reports.map(r=>r.id===edit.data.id?{...r,title:rForm.title,description:rForm.description,type:rForm.type}:r)); closeModal('report'); showNotification("Rapport modifié","success") }
-  const handleDeleteReport = (id,title) => { if(window.confirm(`Supprimer le rapport "${title}" ?`)) { setReports(reports.filter(r=>r.id!==id)); showNotification("Rapport supprimé","warning") } }
-  const handleViewReport = r => alert(`📄 ${r.title}\n\n${r.description}\n\nType: ${r.type}\nDate: ${utils.formatDate(r.date)}\nAuteur: ${r.author}\n\n(Fonctionnalité d'export PDF à venir)`)
+  // 🔌 MODIFICATION : Appels backend
+  const handleAddReport = async () => { 
+    if(!rForm.title.trim()||!rForm.description.trim()) return
+    try {
+      const response = await reportService.create(rForm)
+      if (response.success) {
+        await loadAllData()
+        closeModal('report')
+        showNotification("Rapport ajouté","success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de l'ajout","error")
+    }
+  }
+
+  const handleUpdateReport = async () => { 
+    if(!rForm.title.trim()||!rForm.description.trim()) return
+    try {
+      const response = await reportService.update(edit.data.id, rForm)
+      if (response.success) {
+        await loadAllData()
+        closeModal('report')
+        showNotification("Rapport modifié","success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la modification","error")
+    }
+  }
+
+  const handleDeleteReport = async (id,title) => { 
+    if(!window.confirm(`Supprimer le rapport "${title}" ?`)) return
+    try {
+      const response = await reportService.delete(id)
+      if (response.success) {
+        await loadAllData()
+        showNotification("Rapport supprimé","warning")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la suppression","error")
+    }
+  }
+
+  const handleViewReport = async (r) => {
+    try {
+      // 🔌 Télécharger le rapport en PDF
+      await reportService.download(r.id, r.title)
+    } catch (error) {
+      showNotification("Erreur lors du téléchargement", "error")
+    }
+  }
 
   // ===== GESTION DES FACTURES =====
-  const handleGenerateInvoice = order => { if(order.invoiceId) { alert("Facture déjà associée !"); return } const newInv={id:utils.generateId('FACT-2026',invoices),date:new Date().toISOString().split('T')[0],orderId:order.id,client:order.client,amount:order.total,status:"envoyée",dueDate:new Date(Date.now()+30*24*60*60*1000).toISOString().split('T')[0],archived:false}; setInvoices([newInv,...invoices]); setOrders(orders.map(o=>o.id===order.id?{...o,invoiceId:newInv.id,paymentStatus:"en attente"}:o)); showNotification(`Facture ${newInv.id} générée`,"success") }
-  const handleMarkAsPaid = id => { setInvoices(invoices.map(i=>i.id===id?{...i,status:"payée"}:i)); const inv=invoices.find(i=>i.id===id); if(inv) setOrders(orders.map(o=>o.id===inv.orderId?{...o,paymentStatus:"payée"}:o)); showNotification("Facture marquée payée","success") }
-  const handleRestoreInvoice = invoiceId => { setInvoices(invoices.map(i=>i.id===invoiceId?{...i,status:"payée",archived:false,archivedDate:null,archiveRef:null,retentionDate:null}:i)); setArchiveLog(archiveLog.filter(e=>e.invoiceId!==invoiceId)); showNotification(`Facture ${invoiceId} restaurée`,"success") }
-  const handleArchiveInvoice = (invoice,reason="Archivage manuel") => { if(invoice.status!=="payée") { showNotification("Seules les factures payées peuvent être archivées","error"); return } const ref=utils.generateArchiveRef(); const ret=utils.calculateRetentionDate(new Date().toISOString().split('T')[0],10); setInvoices(invoices.map(i=>i.id===invoice.id?{...i,status:"archivée",archived:true,archivedDate:new Date().toISOString().split('T')[0],archiveRef:ref,retentionDate:ret}:i)); setArchiveLog([{id:archiveLog.length+1,invoiceId:invoice.id,date:new Date().toISOString().split('T')[0],reason,archivedBy:userSettings.firstName||"admin_facture",reference:ref,retentionDate:ret,amount:invoice.amount,client:invoice.client},...archiveLog]); setArchiveModal({show:false,invoice:null}); showNotification(`Facture ${invoice.id} archivée (Réf: ${ref})`,"success") }
+  // 🔌 MODIFICATION : Appels backend
+  const handleGenerateInvoice = async (order) => { 
+    if(order.invoiceId) { 
+      alert("Facture déjà associée !") 
+      return 
+    }
+    try {
+      const invoiceData = {
+        orderId: order.id,
+        client: order.client,
+        amount: order.total,
+        dueDate: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
+      }
+      const response = await invoiceService.create(invoiceData)
+      if (response.success) {
+        await loadAllData()
+        showNotification(`Facture générée avec succès`,"success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la génération","error")
+    }
+  }
+
+  const handleMarkAsPaid = async (id) => { 
+    try {
+      const response = await invoiceService.markAsPaid(id, {
+        paymentMethod: "virement",
+        amount: invoices.find(i => i.id === id)?.amount
+      })
+      if (response.success) {
+        await loadAllData()
+        showNotification("Facture marquée payée","success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors du marquage","error")
+    }
+  }
+
+  const handleRestoreInvoice = async (invoiceId) => { 
+    try {
+      const response = await invoiceService.restore(invoiceId)
+      if (response.success) {
+        await loadAllData()
+        showNotification(`Facture ${invoiceId} restaurée`,"success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de la restauration","error")
+    }
+  }
+
+  const handleArchiveInvoice = async (invoice,reason="Archivage manuel") => { 
+    if(invoice.status!=="payée") { 
+      showNotification("Seules les factures payées peuvent être archivées","error") 
+      return 
+    }
+    try {
+      const response = await invoiceService.archive(invoice.id, { reason })
+      if (response.success) {
+        await loadAllData()
+        setArchiveModal({show:false,invoice:null})
+        showNotification(`Facture ${invoice.id} archivée`,"success")
+      }
+    } catch (error) {
+      showNotification("Erreur lors de l'archivage","error")
+    }
+  }
+
+  // 🔌 AJOUT : Télécharger PDF facture
+  const handleDownloadInvoice = async (id) => {
+    try {
+      await invoiceService.downloadPdf(id)
+      showNotification("Téléchargement en cours...", "info")
+    } catch (error) {
+      showNotification("Erreur lors du téléchargement", "error")
+    }
+  }
 
   // ===== FILTRES =====
   const filteredOrders = useMemo(()=>orders.filter(o=>(!filters.date.start||o.date>=filters.date.start)&&(!filters.date.end||o.date<=filters.date.end)&&(!filters.search||o.id.toLowerCase().includes(filters.search.toLowerCase())||o.client.toLowerCase().includes(filters.search.toLowerCase()))),[orders,filters])
@@ -244,7 +485,7 @@ export default function FacturationAdmin() {
     </button>
   )
 
-  if(loading) return <div className="facture-loading"><div className="spinner"></div><p>Chargement...</p></div>
+  if(loading || dataLoading) return <div className="facture-loading"><div className="spinner"></div><p>Chargement...</p></div>
 
   // ===== RENDU PRINCIPAL =====
   return (
@@ -326,7 +567,7 @@ export default function FacturationAdmin() {
         {tab===C.TABS.INVOICES && <div className="invoices-content">
           <div className="content-header"><div className="header-left"><h2>📄 Factures</h2><span className="header-count">{filteredInvoices.length}</span></div></div>
           <div className="search-section"><SearchBar v={filters.search} o={v=>setFilters(p=>({...p,search:v}))} p="Rechercher par N° facture, client ou commande..."/></div>
-          <Table h={["N°","Date","Commande","Client","Montant","Statut","Échéance","Archive","Actions"]} r={filteredInvoices} rn={i=><tr key={i.id} className={i.archived?"archived-row":""}><td className="invoice-number">{i.id}</td><td>{utils.formatDate(i.date)}</td><td className="order-id">{i.orderId}</td><td className="client-name">{i.client}</td><td className="amount">{utils.formatCurrency(i.amount)}</td><td><StatusBadge status={i.status}/></td><td className={new Date(i.dueDate)<new Date()&&i.status!=="payée"&&i.status!=="archivée"?"text-danger":""}>{utils.formatDate(i.dueDate)}{i.archived&&i.retentionDate&&<small className="retention-info">(Conservée jusqu'au {utils.formatDate(i.retentionDate)})</small>}</td><td>{i.archived?<span className="archived-badge" title={`Réf: ${i.archiveRef}`}>📦 Archivée{i.archiveRef&&<small>{i.archiveRef}</small>}</span>:i.status==="payée"&&<button className="btn-small btn-archive" onClick={()=>setArchiveModal({show:true,invoice:i})} title="Archiver">📦 Archiver</button>}</td><td><div className="action-buttons">{i.archived?<button className="action-btn" onClick={()=>handleRestoreInvoice(i.id)} title="Restaurer">↩️</button>:i.status!=="payée"&&<button className="action-btn success" onClick={()=>handleMarkAsPaid(i.id)} title="Marquer payée">💰</button>}<button className="action-btn" title="Télécharger">📥</button></div></td></tr>}/>
+          <Table h={["N°","Date","Commande","Client","Montant","Statut","Échéance","Archive","Actions"]} r={filteredInvoices} rn={i=><tr key={i.id} className={i.archived?"archived-row":""}><td className="invoice-number">{i.id}</td><td>{utils.formatDate(i.date)}</td><td className="order-id">{i.orderId}</td><td className="client-name">{i.client}</td><td className="amount">{utils.formatCurrency(i.amount)}</td><td><StatusBadge status={i.status}/></td><td className={new Date(i.dueDate)<new Date()&&i.status!=="payée"&&i.status!=="archivée"?"text-danger":""}>{utils.formatDate(i.dueDate)}{i.archived&&i.retentionDate&&<small className="retention-info">(Conservée jusqu'au {utils.formatDate(i.retentionDate)})</small>}</td><td>{i.archived?<span className="archived-badge" title={`Réf: ${i.archiveRef}`}>📦 Archivée{i.archiveRef&&<small>{i.archiveRef}</small>}</span>:i.status==="payée"&&<button className="btn-small btn-archive" onClick={()=>setArchiveModal({show:true,invoice:i})} title="Archiver">📦 Archiver</button>}</td><td><div className="action-buttons">{i.archived?<button className="action-btn" onClick={()=>handleRestoreInvoice(i.id)} title="Restaurer">↩️</button>:i.status!=="payée"&&<button className="action-btn success" onClick={()=>handleMarkAsPaid(i.id)} title="Marquer payée">💰</button>}<button className="action-btn" onClick={()=>handleDownloadInvoice(i.id)} title="Télécharger">📥</button></div></td></tr>}/>
         </div>}
 
         {tab===C.TABS.REPORTS && <div className="reports-content">

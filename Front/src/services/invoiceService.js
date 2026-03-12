@@ -1,13 +1,11 @@
 // src/services/invoiceService.js
 import api from './api';
-
 export const invoiceService = {
-  // ===== MÉTHODES PRINCIPALES =====
-  
+  // ===== CRUD STANDARD =====
   /**
    * Récupérer toutes les factures
-   * @param {Object} params - Paramètres de requête (pagination, filtres)
-   * @returns {Promise<Array>} Liste des factures
+   * @param {Object} params - Paramètres (page, limit, status, customerId, startDate, endDate, sortBy, order)
+   * @returns {Promise<Object>} Liste des factures avec pagination et totaux
    */
   getAll: async (params = {}) => {
     try {
@@ -18,22 +16,17 @@ export const invoiceService = {
       throw error;
     }
   },
-
-  /**
-   * ALIAS pour compatibilité avec FacturationAdmin
-   * Utilise getAll() en interne
-   */
-  getInvoices: async (params = {}) => {
-    return invoiceService.getAll(params);
-  },
-
   /**
    * Récupérer une facture par ID
    * @param {string} id - ID de la facture
-   * @returns {Promise<Object>} Détails de la facture
+   * @returns {Promise<Object>} Détails de la facture avec paiements
    */
   getById: async (id) => {
     try {
+      // Validation de l'ID
+      if (!id) {
+        throw new Error('ID de la facture requis');
+      }
       const response = await api.get(`/invoices/${id}`);
       return response.data;
     } catch (error) {
@@ -41,7 +34,6 @@ export const invoiceService = {
       throw error;
     }
   },
-
   /**
    * Créer une facture
    * @param {Object} invoiceData - Données de la facture
@@ -49,6 +41,22 @@ export const invoiceService = {
    */
   create: async (invoiceData) => {
     try {
+      // Validation des données
+      if (!invoiceData || typeof invoiceData !== 'object') {
+        throw new Error('Données de la facture invalides');
+      }
+      // Validation du client
+      if (!invoiceData.customer) {
+        throw new Error('Le client est requis');
+      }
+      // Validation des articles
+      if (!invoiceData.items || !Array.isArray(invoiceData.items) || invoiceData.items.length === 0) {
+        throw new Error('Au moins un article est requis');
+      }
+      // Validation de la date d'échéance
+      if (invoiceData.dueDate && new Date(invoiceData.dueDate) < new Date()) {
+        throw new Error('La date d\'échéance doit être postérieure à aujourd\'hui');
+      }
       const response = await api.post('/invoices', invoiceData);
       return response.data;
     } catch (error) {
@@ -56,7 +64,6 @@ export const invoiceService = {
       throw error;
     }
   },
-
   /**
    * Mettre à jour une facture
    * @param {string} id - ID de la facture
@@ -65,6 +72,18 @@ export const invoiceService = {
    */
   update: async (id, invoiceData) => {
     try {
+      // Validation de l'ID
+      if (!id) {
+        throw new Error('ID de la facture requis');
+      }
+      // Validation des données
+      if (!invoiceData || typeof invoiceData !== 'object') {
+        throw new Error('Données de la facture invalides');
+      }
+      // Validation de la date d'échéance si fournie
+      if (invoiceData.dueDate && new Date(invoiceData.dueDate) < new Date()) {
+        throw new Error('La date d\'échéance doit être postérieure à aujourd\'hui');
+      }
       const response = await api.put(`/invoices/${id}`, invoiceData);
       return response.data;
     } catch (error) {
@@ -72,7 +91,6 @@ export const invoiceService = {
       throw error;
     }
   },
-
   /**
    * Supprimer une facture
    * @param {string} id - ID de la facture
@@ -80,6 +98,10 @@ export const invoiceService = {
    */
   delete: async (id) => {
     try {
+      // Validation de l'ID
+      if (!id) {
+        throw new Error('ID de la facture requis');
+      }
       const response = await api.delete(`/invoices/${id}`);
       return response.data;
     } catch (error) {
@@ -87,86 +109,82 @@ export const invoiceService = {
       throw error;
     }
   },
-
-  // ===== MÉTHODES MÉTIER SPÉCIALISÉES =====
-
+  // ===== ACTIONS SUR FACTURE =====
+  /**
+   * Valider une facture (changer statut de brouillon à envoyée)
+   * @param {string} id - ID de la facture
+   * @returns {Promise<Object>} Facture validée
+   */
+  validate: async (id) => {
+    try {
+      // Validation de l'ID
+      if (!id) {
+        throw new Error('ID de la facture requis');
+      }
+      const response = await api.patch(`/invoices/${id}/validate`);
+      return response.data;
+    } catch (error) {
+      console.error(`❌ Erreur validate invoice ${id}:`, error);
+      throw error;
+    }
+  },
   /**
    * Marquer une facture comme payée
    * @param {string} id - ID de la facture
-   * @returns {Promise<Object>} Facture mise à jour
+   * @param {Object} paymentData - Données du paiement
+   * @param {string} paymentData.paymentMethod - Mode de paiement
+   * @param {number} paymentData.amount - Montant payé
+   * @param {string} paymentData.reference - Référence du paiement
+   * @returns {Promise<Object>} Facture mise à jour et paiement créé
    */
-  markAsPaid: async (id) => {
+  markAsPaid: async (id, paymentData) => {
     try {
-      const response = await api.patch(`/invoices/${id}/pay`);
+      // Validation de l'ID
+      if (!id) {
+        throw new Error('ID de la facture requis');
+      }
+      // Validation des données de paiement
+      if (!paymentData || typeof paymentData !== 'object') {
+        throw new Error('Données de paiement invalides');
+      }
+      if (!paymentData.paymentMethod) {
+        throw new Error('Le mode de paiement est requis');
+      }
+      if (!paymentData.amount || paymentData.amount <= 0) {
+        throw new Error('Le montant doit être supérieur à 0');
+      }
+      const response = await api.patch(`/invoices/${id}/pay`, paymentData);
       return response.data;
     } catch (error) {
       console.error(`❌ Erreur markAsPaid invoice ${id}:`, error);
       throw error;
     }
   },
-
   /**
-   * Archiver une facture
-   * @param {string} id - ID de la facture
-   * @param {string} reason - Motif d'archivage
-   * @returns {Promise<Object>} Facture archivée
+   * Créer un avoir pour une facture
+   * @param {string} id - ID de la facture originale
+   * @param {Object} data - Données de l'avoir
+   * @param {string} data.reason - Motif de l'avoir
+   * @returns {Promise<Object>} Avoir créé
    */
-  archive: async (id, reason) => {
+  createCreditNote: async (id, data) => {
     try {
-      const response = await api.post(`/invoices/${id}/archive`, { reason });
+      // Validation de l'ID
+      if (!id) {
+        throw new Error('ID de la facture requis');
+      }
+      // Validation du motif
+      if (!data.reason?.trim()) {
+        throw new Error('Le motif de l\'avoir est requis');
+      }
+      const response = await api.post(`/invoices/${id}/credit-note`, data);
       return response.data;
     } catch (error) {
-      console.error(`❌ Erreur archive invoice ${id}:`, error);
+      console.error(`❌ Erreur createCreditNote invoice ${id}:`, error);
       throw error;
     }
   },
-
-  /**
-   * Restaurer une facture archivée
-   * @param {string} id - ID de la facture
-   * @returns {Promise<Object>} Facture restaurée
-   */
-  restore: async (id) => {
-    try {
-      const response = await api.post(`/invoices/${id}/restore`);
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur restore invoice ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Récupérer le journal d'archivage
-   * @returns {Promise<Array>} Historique des archives
-   */
-  getArchiveLog: async () => {
-    try {
-      const response = await api.get('/invoices/archive-log');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Erreur getArchiveLog:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Générer une facture à partir d'une commande
-   * @param {string} orderId - ID de la commande
-   * @returns {Promise<Object>} Facture générée
-   */
-  generateFromOrder: async (orderId) => {
-    try {
-      const response = await api.post('/invoices/from-order', { orderId });
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur generateFromOrder ${orderId}:`, error);
-      throw error;
-    }
-  },
-
-  // ===== MÉTHODES UTILITAIRES =====
-
+  // ===== EXPORTS ET COMMUNICATION =====
   /**
    * Télécharger une facture en PDF
    * @param {string} id - ID de la facture
@@ -174,31 +192,31 @@ export const invoiceService = {
    */
   downloadPdf: async (id) => {
     try {
+      // Validation de l'ID
+      if (!id) {
+        throw new Error('ID de la facture requis');
+      }
       const response = await api.get(`/invoices/${id}/pdf`, {
         responseType: 'blob'
       });
-      
       // Créer un lien de téléchargement
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `facture-${id}.pdf`);
+      link.setAttribute('download', `facture-${id}-${new Date().toISOString().split('T')[0]}.pdf`);
       document.body.appendChild(link);
       link.click();
-      
       // Nettoyer
       setTimeout(() => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       }, 100);
-      
       return true;
     } catch (error) {
       console.error(`❌ Erreur downloadPdf invoice ${id}:`, error);
       throw error;
     }
   },
-
   /**
    * Envoyer une facture par email
    * @param {string} id - ID de la facture
@@ -207,55 +225,46 @@ export const invoiceService = {
    */
   sendByEmail: async (id, email) => {
     try {
-      const response = await api.post(`/invoices/${id}/send`, { email });
+      // Validation de l'ID
+      if (!id) {
+        throw new Error('ID de la facture requis');
+      }
+      // Validation de l'email
+      if (!email?.trim()) {
+        throw new Error('L\'email du destinataire est requis');
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Format d\'email invalide');
+      }
+      const response = await api.post(`/invoices/${id}/email`, { email });
       return response.data;
     } catch (error) {
       console.error(`❌ Erreur sendByEmail invoice ${id}:`, error);
       throw error;
     }
   },
-
+  // ===== RECHERCHE ET STATISTIQUES =====
   /**
-   * Récupérer les statistiques des factures
-   * @returns {Promise<Object>} Statistiques
+   * Recherche avancée de factures
+   * @param {Object} params - Critères de recherche
+   * @param {string} params.q - Terme de recherche
+   * @param {string} params.customerId - ID client
+   * @param {string} params.status - Statut
+   * @param {number} params.minAmount - Montant minimum
+   * @param {number} params.maxAmount - Montant maximum
+   * @param {string} params.startDate - Date début
+   * @param {string} params.endDate - Date fin
+   * @param {number} params.page - Page
+   * @param {number} params.limit - Limite
+   * @returns {Promise<Object>} Résultats de recherche
    */
-  getStats: async () => {
+  search: async (params) => {
     try {
-      const response = await api.get('/invoices/stats');
+      const response = await api.get('/invoices/search', { params });
       return response.data;
     } catch (error) {
-      console.error('❌ Erreur getStats invoices:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Dupliquer une facture
-   * @param {string} id - ID de la facture à dupliquer
-   * @returns {Promise<Object>} Nouvelle facture
-   */
-  duplicate: async (id) => {
-    try {
-      const response = await api.post(`/invoices/${id}/duplicate`);
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur duplicate invoice ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Annuler une facture
-   * @param {string} id - ID de la facture
-   * @param {string} reason - Motif d'annulation
-   * @returns {Promise<Object>} Facture annulée
-   */
-  cancel: async (id, reason) => {
-    try {
-      const response = await api.post(`/invoices/${id}/cancel`, { reason });
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Erreur cancel invoice ${id}:`, error);
+      console.error('❌ Erreur search invoices:', error);
       throw error;
     }
   }

@@ -3,14 +3,19 @@ import api from './api';
 
 export const reportService = {
   // Récupérer tous les rapports
-  getAll: async () => {
+  getAll: async (params = {}) => {
     try {
-      const response = await api.get('/reports');
+      const response = await api.get('/reports', { params });
       return response.data;
     } catch (error) {
       console.error('Erreur getAll reports:', error);
       throw error;
     }
+  },
+
+  // ALIAS pour compatibilité avec FacturationAdmin
+  getReports: async (params = {}) => {
+    return reportService.getAll(params);
   },
 
   // Récupérer un rapport par ID

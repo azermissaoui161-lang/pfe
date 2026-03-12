@@ -1,45 +1,19 @@
-// src/pages/stock/StockAdmin.jsx - Version optimisée avec module Fournisseurs
+// src/pages/stock/StockAdmin.jsx - Version MongoDB avec NOTIFICATIONS
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { clearAuth, getUserEmail, getUserRole, isAuthenticated } from "../../utils/auth"
-import userService from '../../services/userService'; 
+// 🔌 IMPORTS DES SERVICES
+import productService from "../../services/productService" // ✅ (export default)
+import categoryService from "../../services/categoryService" // ✅ (export default)
+import supplierService from "../../services/supplierService" // ✅ (export default)
+import stockMovementService from "../../services/stockMovementService" // ✅ (export default)
+import userService from "../../services/userService" // ✅ (export default)
+import notificationService from "../../services/notificationService" // ✅ (export default)
 import "./StockAdmin.css"
-
 // ===== CONSTANTES =====
 const STATUS={IN_STOCK:"en stock",LOW_STOCK:"stock faible",OUT_OF_STOCK:"rupture"}
 const MV={IN:"entrée",OUT:"sortie"}
 const TABS={PRODUCTS:"products",CATEGORIES:"categories",MOVEMENTS:"movements",ALERTS:"alerts",REPORTS:"reports",SETTINGS:"settings",SUPPLIERS:"suppliers"}
-
-// ===== DONNÉES INITIALES =====
-const IC=[{id:1,name:"Électronique",description:"Produits électroniques",productCount:4},{id:2,name:"Mobilier",description:"Meubles de bureau",productCount:2},{id:3,name:"Accessoires",description:"Accessoires informatiques",productCount:2}]
-const IP=[
-  {id:1,name:"iPhone 13",category:"Électronique",stock:45,price:899,status:STATUS.IN_STOCK, supplierId:1},
-  {id:2,name:"Samsung TV 4K",category:"Électronique",stock:12,price:699,status:STATUS.IN_STOCK, supplierId:2},
-  {id:3,name:"Chaise de bureau",category:"Mobilier",stock:8,price:149,status:STATUS.LOW_STOCK, supplierId:3},
-  {id:4,name:'Écran 27"',category:"Électronique",stock:0,price:299,status:STATUS.OUT_OF_STOCK, supplierId:2},
-  {id:5,name:"Clavier mécanique",category:"Accessoires",stock:23,price:89,status:STATUS.IN_STOCK, supplierId:1},
-  {id:6,name:"Souris sans fil",category:"Accessoires",stock:34,price:49,status:STATUS.IN_STOCK, supplierId:1},
-  {id:7,name:"Table pliante",category:"Mobilier",stock:5,price:199,status:STATUS.LOW_STOCK, supplierId:3},
-  {id:8,name:"Casque audio",category:"Accessoires",stock:18,price:129,status:STATUS.IN_STOCK, supplierId:2}
-]
-const IM=[
-  {id:1,date:"2026-02-10",product:"iPhone 13",productId:1,type:MV.IN,quantity:20,user:"admin@erp.com",note:"Réapprovisionnement"},
-  {id:2,date:"2026-02-11",product:"Samsung TV 4K",productId:2,type:MV.OUT,quantity:3,user:"stock@erp.com",note:"Vente client"},
-  {id:3,date:"2026-02-11",product:"Chaise de bureau",productId:3,type:MV.IN,quantity:10,user:"stock@erp.com",note:"Nouvelle commande"},
-  {id:4,date:"2026-02-12",product:"Clavier mécanique",productId:5,type:MV.OUT,quantity:5,user:"stock@erp.com",note:"Vente en ligne"},
-  {id:5,date:"2026-02-12",product:'Écran 27"',productId:4,type:MV.IN,quantity:15,user:"admin@erp.com",note:"Réapprovisionnement"},
-  {id:6,date:"2026-02-13",product:"Souris sans fil",productId:6,type:MV.OUT,quantity:8,user:"stock@erp.com",note:"Vente magasin"},
-  {id:7,date:"2026-02-13",product:"Casque audio",productId:8,type:MV.IN,quantity:12,user:"admin@erp.com",note:"Nouveau stock"},
-  {id:8,date:"2026-02-14",product:"Table pliante",productId:7,type:MV.OUT,quantity:2,user:"stock@erp.com",note:"Vente bureau"}
-]
-
-// ===== DONNÉES FOURNISSEURS =====
-const IS = [
-  {id:1,name:"Tech Distribution",contact:"Jean Dupont",email:"contact@techdistrib.fr",phone:"01 23 45 67 89",address:"15 Rue de l'Innovation, 75001 Paris",products:3,status:"actif",since:"2025-01-15",rating:4.5},
-  {id:2,name:"Global Electronics",contact:"Marie Martin",email:"sales@globalelec.com",phone:"01 98 76 54 32",address:"28 Avenue des Champs, 69000 Lyon",products:3,status:"actif",since:"2025-02-20",rating:4.8},
-  {id:3,name:"Mobilier Pro",contact:"Pierre Durand",email:"contact@mobilierpro.fr",phone:"03 45 67 89 12",address:"5 Rue du Commerce, 33000 Bordeaux",products:2,status:"actif",since:"2025-03-10",rating:4.2},
-  {id:4,name:"Accessoires Direct",contact:"Sophie Bernard",email:"commandes@accessoiresdirect.fr",phone:"04 56 78 91 23",address:"42 Rue de la Logistique, 44000 Nantes",products:0,status:"inactif",since:"2025-04-05",rating:3.5}
-]
 
 // ===== COMPOSANTS RÉUTILISABLES =====
 const Modal=({isOpen,onClose,title,children,onConfirm,confirmText="Confirmer",showConfirm=true})=>
@@ -74,31 +48,128 @@ const RatingStars = ({rating}) => {
   return <div className="rating-stars">{stars}</div>
 }
 
+// ✅ NOUVEAU COMPOSANT : NotificationBell
+const NotificationBell = ({ unreadCount, onClick }) => (
+  <button className="notification-bell" onClick={onClick} style={{position:'relative', background:'transparent', border:'none', fontSize:'1.5rem', cursor:'pointer', padding:'8px'}}>
+    🔔
+    {unreadCount > 0 && (
+      <span style={{position:'absolute', top:0, right:0, background:'#f56565', color:'white', fontSize:'0.7rem', fontWeight:'bold', minWidth:'18px', height:'18px', borderRadius:'9px', display:'flex', alignItems:'center', justifyContent:'center'}}>
+        {unreadCount}
+      </span>
+    )}
+  </button>
+);
+
+// ✅ NOUVEAU COMPOSANT : NotificationsDropdown
+const NotificationsDropdown = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClose }) => (
+  <div style={{position:'absolute', top:'60px', right:'20px', width:'350px', maxHeight:'400px', overflowY:'auto', background:'white', borderRadius:'8px', boxShadow:'0 4px 12px rgba(0,0,0,0.15)', zIndex:1000, padding:'10px'}}>
+    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px', padding:'0 10px'}}>
+      <h4 style={{margin:0}}>Notifications</h4>
+      {notifications.some(n => !n.read) && (
+        <button onClick={onMarkAllAsRead} style={{background:'#48bb78', color:'white', border:'none', borderRadius:'5px', padding:'5px 10px', cursor:'pointer'}}>
+          Tout marquer lu
+        </button>
+      )}
+    </div>
+    <div style={{maxHeight:'350px', overflowY:'auto'}}>
+      {notifications.length > 0 ? (
+        notifications.map(notif => (
+          <div key={notif.id} style={{padding:'10px', borderBottom:'1px solid #e2e8f0', background: !notif.read ? '#f0f9ff' : 'white', display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+            <div style={{flex:1}}>
+              <strong>{notif.title}</strong>
+              <p style={{margin:'5px 0', fontSize:'0.9rem'}}>{notif.message}</p>
+              <small style={{color:'#718096', fontSize:'0.8rem'}}>{new Date(notif.createdAt).toLocaleString()}</small>
+            </div>
+            {!notif.read && (
+              <button onClick={() => onMarkAsRead(notif.id)} style={{background:'transparent', border:'none', fontSize:'1.2rem', cursor:'pointer', color:'#48bb78'}}>
+                ✓
+              </button>
+            )}
+          </div>
+        ))
+      ) : (
+        <div style={{textAlign:'center', padding:'20px', color:'#a0aec0'}}>Aucune notification</div>
+      )}
+    </div>
+  </div>
+);
+
 // ===== COMPOSANT PRINCIPAL =====
 function StockAdmin(){
   const n=useNavigate()
   const [ue,setUe]=useState(""),[un,setUn]=useState(""),[ur,setUr]=useState(""),[load,setLoad]=useState(true)
+  const [dataLoading, setDataLoading] = useState(false)
   const [tab,setTab]=useState(TABS.PRODUCTS)
+  
+  // ✅ ÉTATS POUR LES NOTIFICATIONS
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
   
   // États paramètres
   const [us,setUs]=useState({firstName:"",lastName:"",email:"",phone:"",department:"",role:"",currentPassword:"",newPassword:"",confirmPassword:""})
   const [sm,setSm]=useState({type:"",text:""}),[upd,setUpd]=useState(false)
   
-  // États généraux
+  // 🔌 ÉTATS POUR LES DONNÉES BACKEND
+  const [cat,setCat]=useState([])
+  const [prod,setProd]=useState([])
+  const [mov,setMov]=useState([])
+  const [supp,setSupp]=useState([])
+  
+  // États généraux (inchangés)
   const [mod,setMod]=useState({category:false,product:false,movement:false,categoryProducts:false,supplier:false,supplierProducts:false})
   const [ec,setEc]=useState(null),[ep,setEp]=useState(null),[sc,setSc]=useState(null),[es,setEs]=useState(null)
   const [f,setF]=useState({movement:"all",productName:"",productCategory:"",productStatus:"",date:"",searchProduct:"",startDate:"",endDate:"",supplierName:"",supplierStatus:"",supplierRating:""})
   const [spf,setSpf]=useState(false),[sdp,setSdp]=useState(false)
   
-  // Données
-  const [cat,setCat]=useState(IC),[prod,setProd]=useState(IP),[mov,setMov]=useState(IM),[supp,setSupp]=useState(IS)
-  
-  // Formulaires
+  // Formulaires (inchangés)
   const [cf,setCf]=useState({name:"",description:""})
   const [pf,setPf]=useState({name:"",category:"",stock:"",price:"",status:STATUS.IN_STOCK,supplierId:""})
   const [mf,setMf]=useState({productId:"",product:"",type:MV.IN,quantity:"",date:new Date().toISOString().split('T')[0],note:""})
   const [sf,setSf]=useState({name:"",contact:"",email:"",phone:"",address:"",status:"actif",rating:4})
   const [fe,setFe]=useState({})
+
+  // ✅ FONCTION : Charger les notifications
+  const loadNotifications = async () => {
+    try {
+      const result = await notificationService.getNotifications({ limit: 20 });
+      if (result.success) {
+        setNotifications(result.data || []);
+        
+        const countResult = await notificationService.getUnreadCount();
+        if (countResult.success) {
+          setUnreadCount(countResult.data?.unreadCount || 0);
+        }
+      }
+    } catch (error) {
+      console.error("Erreur chargement notifications:", error);
+    }
+  };
+
+  // ✅ FONCTION : Marquer comme lue
+  const handleMarkAsRead = async (id) => {
+    try {
+      const result = await notificationService.markAsRead(id);
+      if (result.success) {
+        await loadNotifications();
+      }
+    } catch (error) {
+      console.error("Erreur marquage notification:", error);
+    }
+  };
+
+  // ✅ FONCTION : Marquer tout comme lu
+  const handleMarkAllAsRead = async () => {
+    try {
+      const result = await notificationService.markAllAsRead();
+      if (result.success) {
+        setUnreadCount(0);
+        setNotifications(notifications.map(n => ({ ...n, read: true })));
+      }
+    } catch (error) {
+      console.error("Erreur marquage tout:", error);
+    }
+  };
 
   // ===== AUTH =====
   useEffect(()=>{
@@ -106,10 +177,56 @@ function StockAdmin(){
     if(!isAuthenticated()||!["admin_stock","admin_principal"].includes(role)) n("/login")
     else{
       setUr(role);setUe(email);setUn(email?.split('@')[0]||"Stock Manager")
-      setUs({firstName:localStorage.getItem('stockFirstName')||"Gestionnaire",lastName:localStorage.getItem('stockLastName')||"Stock",email:email||"",phone:localStorage.getItem('stockPhone')||"",department:localStorage.getItem('stockDepartment')||"Gestion des stocks",role:role||"admin_stock",currentPassword:"",newPassword:"",confirmPassword:""})
+      loadUserProfile()
+      loadAllData()
+      loadNotifications() // ✅ Charger les notifications
       setLoad(false)
     }
   },[n])
+
+  // ===== CHARGEMENT PROFIL =====
+  const loadUserProfile = async () => {
+    try {
+      const response = await userService.getProfile()
+      if (response.success) {
+        const userData = response.data
+        setUs({
+          firstName: userData.firstName || "Gestionnaire",
+          lastName: userData.lastName || "Stock",
+          email: userData.email || ue,
+          phone: userData.phone || "",
+          department: userData.department || "Gestion des stocks",
+          role: userData.role || "admin_stock",
+          currentPassword: "", newPassword: "", confirmPassword: ""
+        })
+      }
+    } catch (error) {
+      console.error("Erreur chargement profil:", error)
+    }
+  }
+
+  // ===== CHARGEMENT DONNÉES =====
+  const loadAllData = async () => {
+    setDataLoading(true)
+    try {
+      const [catRes, prodRes, suppRes, movRes] = await Promise.all([
+        categoryService.getAll(),
+        productService.getAll(),
+        supplierService.getAll(),
+        stockMovementService.getAll()
+      ])
+
+      if (catRes.success) setCat(catRes.data || [])
+      if (prodRes.success) setProd(prodRes.data || [])
+      if (suppRes.success) setSupp(suppRes.data || [])
+      if (movRes.success) setMov(movRes.data || [])
+      
+    } catch (error) {
+      console.error("Erreur chargement données:", error)
+    } finally {
+      setDataLoading(false)
+    }
+  }
 
   // ===== NAVIGATION =====
   const hdlDash=()=>n("/stock/dashboard")
@@ -118,6 +235,7 @@ function StockAdmin(){
 
   // ===== GESTION PARAMÈTRES =====
   const hdlSetChange=e=>{const{name,value}=e.target;setUs({...us,[name]:value})}
+  
   const hdlSave=async()=>{
     if(!us.firstName) return setSm({type:"error",text:"Prénom requis"})
     if(!us.lastName) return setSm({type:"error",text:"Nom requis"})
@@ -133,16 +251,33 @@ function StockAdmin(){
     }
     
     setUpd(true);setSm({type:"info",text:"Mise à jour..."})
-    setTimeout(()=>{
-      localStorage.setItem('stockFirstName',us.firstName)
-      localStorage.setItem('stockLastName',us.lastName)
-      localStorage.setItem('stockPhone',us.phone)
-      localStorage.setItem('stockDepartment',us.department)
-      if(us.email!==ue){localStorage.setItem('userEmail',us.email);setUe(us.email);setUn(us.firstName)}
-      else setUn(us.firstName)
-      setSm({type:"success",text:"Profil mis à jour !"})
+    
+    try {
+      const response = await userService.updateProfile({
+        firstName: us.firstName,
+        lastName: us.lastName,
+        email: us.email,
+        phone: us.phone,
+        department: us.department
+      })
+
+      if (response.success) {
+        if (us.newPassword) {
+          await userService.changePassword(us.currentPassword, us.newPassword)
+        }
+        
+        setSm({type:"success",text:"Profil mis à jour !"})
+        if(us.email!==ue){
+          localStorage.setItem('userEmail',us.email)
+          setUe(us.email)
+          setUn(us.firstName)
+        }
+      }
+    } catch (error) {
+      setSm({type:"error",text:error.message || "Erreur"})
+    } finally {
       setTimeout(()=>{setSm({type:"",text:""});setUpd(false)},2000)
-    },1500)
+    }
   }
 
   // ===== FILTRES =====
@@ -194,70 +329,110 @@ function StockAdmin(){
   const rSupp=useCallback(()=>{setSf({name:"",contact:"",email:"",phone:"",address:"",status:"actif",rating:4});setEs(null);setFe({})},[])
 
   // ===== CRUD CATÉGORIES =====
-  const hdlAddCat=useCallback(()=>{
+  const hdlAddCat=useCallback(async () => {
     const e=vCat();if(Object.keys(e).length)return setFe(e)
-    setCat([...cat,{id:cat.length+1,name:cf.name.trim(),description:cf.description.trim(),productCount:0}])
-    rCat();setMod(p=>({...p,category:false}))
-  },[cat,cf,vCat,rCat])
+    try {
+      const response = await categoryService.create({
+        name: cf.name.trim(),
+        description: cf.description.trim()
+      })
+      if (response.success) {
+        await loadAllData()
+        rCat()
+        setMod(p=>({...p,category:false}))
+      }
+    } catch (error) {
+      setFe({general: error.message})
+    }
+  },[cf,vCat,rCat])
 
-  const hdlUpdCat=useCallback(()=>{
+  const hdlUpdCat=useCallback(async () => {
     const e=vCat();if(Object.keys(e).length)return setFe(e)
-    setCat(cat.map(c=>c.id===ec.id?{...c,name:cf.name.trim(),description:cf.description.trim()}:c))
-    if(ec.name!==cf.name) setProd(prod.map(p=>p.category===ec.name?{...p,category:cf.name}:p))
-    rCat();setMod(p=>({...p,category:false}))
-  },[cat,prod,ec,cf,vCat,rCat])
+    try {
+      const response = await categoryService.update(ec.id, {
+        name: cf.name.trim(),
+        description: cf.description.trim()
+      })
+      if (response.success) {
+        await loadAllData()
+        rCat()
+        setMod(p=>({...p,category:false}))
+      }
+    } catch (error) {
+      setFe({general: error.message})
+    }
+  },[ec,cf,vCat,rCat])
 
-  const hdlDelCat=useCallback((id,name)=>{
-    if(window.confirm(prod.filter(p=>p.category===name).length?"Cette catégorie contient des produits. Supprimer ?":"Supprimer ?"))
-      setCat(cat.filter(c=>c.id!==id))
-  },[prod,cat])
+  const hdlDelCat=useCallback(async (id,name) => {
+    if(window.confirm(prod.filter(p=>p.category===name).length?"Cette catégorie contient des produits. Supprimer ?":"Supprimer ?")) {
+      try {
+        const response = await categoryService.delete(id)
+        if (response.success) {
+          await loadAllData()
+        }
+      } catch (error) {
+        alert("Erreur lors de la suppression")
+      }
+    }
+  },[prod])
 
   // ===== CRUD PRODUITS =====
   const updStatus=stock=>stock===0?STATUS.OUT_OF_STOCK:stock<10?STATUS.LOW_STOCK:STATUS.IN_STOCK
 
-  const hdlAddProd=useCallback(()=>{
+  const hdlAddProd=useCallback(async () => {
     const e=vProd();if(Object.keys(e).length)return setFe(e)
     const stock=parseInt(pf.stock)||0
-    const newProd={id:prod.length+1,name:pf.name.trim(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock),supplierId:parseInt(pf.supplierId)}
-    setProd([...prod,newProd])
-    setCat(cat.map(c=>c.name===pf.category?{...c,productCount:c.productCount+1}:c))
-    setSupp(supp.map(s=>s.id===parseInt(pf.supplierId)?{...s,products:s.products+1}:s))
-    rProd();setMod(p=>({...p,product:false}))
-  },[prod,cat,supp,pf,vProd,rProd])
-
-  const hdlUpdProd=useCallback(()=>{
-    const e=vProd();if(Object.keys(e).length)return setFe(e)
-    const oldProd=prod.find(p=>p.id===ep.id)
-    const oldCat=oldProd.category
-    const oldSupplier=oldProd.supplierId
-    const stock=parseInt(pf.stock)||0
-    
-    setProd(prod.map(p=>p.id===ep.id?{...ep,name:pf.name.trim(),category:pf.category,stock,price:parseInt(pf.price)||0,status:updStatus(stock),supplierId:parseInt(pf.supplierId)}:p))
-    
-    // Mise à jour compteurs catégories
-    if(oldCat!==pf.category) setCat(cat.map(c=>{
-      if(c.name===oldCat) return{...c,productCount:c.productCount-1}
-      if(c.name===pf.category) return{...c,productCount:c.productCount+1}
-      return c
-    }))
-    
-    // Mise à jour compteurs fournisseurs
-    if(oldSupplier!==parseInt(pf.supplierId)) setSupp(supp.map(s=>{
-      if(s.id===oldSupplier) return{...s,products:s.products-1}
-      if(s.id===parseInt(pf.supplierId)) return{...s,products:s.products+1}
-      return s
-    }))
-    
-    rProd();setMod(p=>({...p,product:false}))
-  },[prod,cat,supp,ep,pf,vProd,rProd])
-
-  const hdlDelProd=useCallback((id,catName,supplierId)=>{
-    if(window.confirm("Supprimer ?")){
-      setProd(prod.filter(p=>p.id!==id))
-      setCat(cat.map(c=>c.name===catName?{...c,productCount:c.productCount-1}:c))
-      setSupp(supp.map(s=>s.id===supplierId?{...s,products:s.products-1}:s))
+    try {
+      const response = await productService.create({
+        name: pf.name.trim(),
+        category: pf.category,
+        stock: stock,
+        price: parseInt(pf.price)||0,
+        supplierId: parseInt(pf.supplierId)
+      })
+      if (response.success) {
+        await loadAllData()
+        rProd()
+        setMod(p=>({...p,product:false}))
+      }
+    } catch (error) {
+      setFe({general: error.message})
     }
-  },[prod,cat,supp])
+  },[pf,vProd,rProd])
+
+  const hdlUpdProd=useCallback(async () => {
+    const e=vProd();if(Object.keys(e).length)return setFe(e)
+    const stock=parseInt(pf.stock)||0
+    try {
+      const response = await productService.update(ep.id, {
+        name: pf.name.trim(),
+        category: pf.category,
+        stock: stock,
+        price: parseInt(pf.price)||0,
+        supplierId: parseInt(pf.supplierId)
+      })
+      if (response.success) {
+        await loadAllData()
+        rProd()
+        setMod(p=>({...p,product:false}))
+      }
+    } catch (error) {
+      setFe({general: error.message})
+    }
+  },[ep,pf,vProd,rProd])
+
+  const hdlDelProd=useCallback(async (id,catName,supplierId) => {
+    if(window.confirm("Supprimer ?")){
+      try {
+        const response = await productService.delete(id)
+        if (response.success) {
+          await loadAllData()
+        }
+      } catch (error) {
+        alert("Erreur lors de la suppression")
+      }
+    }
+  },[])
 
   // ===== CRUD MOUVEMENTS =====
   const hdlProdChange=useCallback(e=>{
@@ -265,78 +440,119 @@ function StockAdmin(){
     if(p) setMf(prev=>({...prev,productId:id,product:p.name}))
   },[prod])
 
-  const hdlAddMv=useCallback(()=>{
+  const hdlAddMv=useCallback(async () => {
     const e=vMv();if(Object.keys(e).length)return setFe(e)
-    const qty=parseInt(mf.quantity),sel=prod.find(p=>p.id===mf.productId)
-    setProd(prod.map(p=>{
-      if(p.id!==mf.productId) return p
-      const ns=mf.type===MV.IN?p.stock+qty:p.stock-qty
-      return{...p,stock:ns,status:updStatus(ns)}
-    }))
-    setMov([{id:mov.length+1,date:mf.date,product:sel.name,productId:mf.productId,type:mf.type,quantity:qty,user:ue||"stock@erp.com",note:mf.note||""},...mov])
-    rMv();setMod(p=>({...p,movement:false}))
-  },[prod,mov,mf,ue,vMv,rMv])
+    const qty=parseInt(mf.quantity)
+    try {
+      let response;
+      if (mf.type === MV.IN) {
+        response = await stockMovementService.addEntry({
+          productId: mf.productId,
+          quantity: qty,
+          reason: mf.note ? 'adjustment' : 'purchase',
+          note: mf.note
+        });
+      } else {
+        response = await stockMovementService.addExit({
+          productId: mf.productId,
+          quantity: qty,
+          reason: 'sale',
+          note: mf.note
+        });
+      }
+      
+      if (response.success) {
+        await loadAllData()
+        await loadNotifications() // ✅ Recharger les notifications
+        rMv()
+        setMod(p=>({...p,movement:false}))
+      }
+    } catch (error) {
+      setFe({general: error.message})
+    }
+  },[mf,vMv,rMv])
 
-  const hdlDelMv=useCallback(id=>{
+  const hdlDelMv=useCallback(async (id) => {
     if(!window.confirm("Supprimer ?")) return
-    const m=mov.find(m=>m.id===id)
-    if(m) setProd(prod.map(p=>{
-      if(p.id!==m.productId) return p
-      const ns=m.type===MV.IN?p.stock-m.quantity:p.stock+m.quantity
-      return{...p,stock:ns,status:updStatus(ns)}
-    }))
-    setMov(mov.filter(m=>m.id!==id))
-  },[prod,mov])
+    try {
+      const response = await stockMovementService.delete(id)
+      if (response.success) {
+        await loadAllData()
+      }
+    } catch (error) {
+      alert("Erreur lors de la suppression")
+    }
+  },[])
 
   // ===== CRUD FOURNISSEURS =====
-  const hdlAddSupp=useCallback(()=>{
+  const hdlAddSupp=useCallback(async () => {
     const e=vSupp();if(Object.keys(e).length)return setFe(e)
-    setSupp([...supp,{
-      id:supp.length+1,
-      name:sf.name.trim(),
-      contact:sf.contact.trim(),
-      email:sf.email.trim(),
-      phone:sf.phone.trim(),
-      address:sf.address.trim(),
-      status:sf.status,
-      rating:parseFloat(sf.rating),
-      products:0,
-      since:new Date().toISOString().split('T')[0]
-    }])
-    rSupp();setMod(p=>({...p,supplier:false}))
-  },[supp,sf,vSupp,rSupp])
+    try {
+      const response = await supplierService.create({
+        name: sf.name.trim(),
+        contact: sf.contact.trim(),
+        email: sf.email.trim(),
+        phone: sf.phone.trim(),
+        address: sf.address.trim(),
+        status: sf.status,
+        rating: parseFloat(sf.rating)
+      })
+      if (response.success) {
+        await loadAllData()
+        rSupp()
+        setMod(p=>({...p,supplier:false}))
+      }
+    } catch (error) {
+      setFe({general: error.message})
+    }
+  },[sf,vSupp,rSupp])
 
-  const hdlUpdSupp=useCallback(()=>{
+  const hdlUpdSupp=useCallback(async () => {
     const e=vSupp();if(Object.keys(e).length)return setFe(e)
-    setSupp(supp.map(s=>s.id===es.id?{
-      ...s,
-      name:sf.name.trim(),
-      contact:sf.contact.trim(),
-      email:sf.email.trim(),
-      phone:sf.phone.trim(),
-      address:sf.address.trim(),
-      status:sf.status,
-      rating:parseFloat(sf.rating)
-    }:s))
-    rSupp();setMod(p=>({...p,supplier:false}))
-  },[supp,es,sf,vSupp,rSupp])
+    try {
+      const response = await supplierService.update(es.id, {
+        name: sf.name.trim(),
+        contact: sf.contact.trim(),
+        email: sf.email.trim(),
+        phone: sf.phone.trim(),
+        address: sf.address.trim(),
+        status: sf.status,
+        rating: parseFloat(sf.rating)
+      })
+      if (response.success) {
+        await loadAllData()
+        rSupp()
+        setMod(p=>({...p,supplier:false}))
+      }
+    } catch (error) {
+      setFe({general: error.message})
+    }
+  },[es,sf,vSupp,rSupp])
 
-  const hdlDelSupp=useCallback((id)=>{
+  const hdlDelSupp=useCallback(async (id) => {
     const hasProducts = prod.some(p=>p.supplierId===id)
     if(hasProducts){
       if(!window.confirm("Ce fournisseur a des produits associés. Supprimer quand même ?")) return
     } else {
       if(!window.confirm("Supprimer ce fournisseur ?")) return
     }
-    setSupp(supp.filter(s=>s.id!==id))
-  },[supp,prod])
+    try {
+      const response = await supplierService.delete(id)
+      if (response.success) {
+        await loadAllData()
+      }
+    } catch (error) {
+      alert("Erreur lors de la suppression")
+    }
+  },[prod])
 
   // ===== ÉDITION =====
   const hdlEditCat=cat=>{setEc(cat);setCf({name:cat.name,description:cat.description||""});setMod(p=>({...p,category:true}))}
   const hdlEditProd=prod=>{setEp(prod);setPf({name:prod.name,category:prod.category,stock:prod.stock.toString(),price:prod.price.toString(),status:prod.status,supplierId:prod.supplierId});setMod(p=>({...p,product:true}))}
   const hdlEditSupp=supp=>{setEs(supp);setSf({name:supp.name,contact:supp.contact,email:supp.email,phone:supp.phone,address:supp.address||"",status:supp.status,rating:supp.rating});setMod(p=>({...p,supplier:true}))}
 
-  if(load) return <div className="stock-loading"><div className="spinner"></div><p>Chargement...</p></div>
+  // ===== CHARGEMENT =====
+  if(load || dataLoading) return <div className="stock-loading"><div className="spinner"></div><p>Chargement...</p></div>
 
   // ===== MENU =====
   const menu=[
@@ -350,8 +566,9 @@ function StockAdmin(){
     {id:TABS.SETTINGS,icon:"⚙️",label:"Paramètres"}
   ]
 
+  // ===== RENDU =====
   return <div className="stock-container">
-    {/* Sidebar */}
+    {/* Sidebar avec notification bell */}
     <aside className="stock-sidebar">
       <div className="sidebar-header">
         <div className="logo-container">
@@ -359,6 +576,19 @@ function StockAdmin(){
           <div><h1>ERP</h1><p>Gestion Stock</p></div>
         </div>
         <span className="role-badge">GESTIONNAIRE STOCK</span>
+        {/* ✅ Notification Bell */}
+        <NotificationBell 
+          unreadCount={unreadCount} 
+          onClick={() => setShowNotifications(!showNotifications)} 
+        />
+        {showNotifications && (
+          <NotificationsDropdown 
+            notifications={notifications}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            onClose={() => setShowNotifications(false)}
+          />
+        )}
       </div>
 
       <div className="user-profile">
@@ -388,7 +618,7 @@ function StockAdmin(){
       </div>
     </aside>
 
-    {/* Main Content */}
+    {/* Main Content - inchangé */}
     <main className="stock-main">
       <header className="main-header">
         <div><h1 className="page-title">Gestion des stocks</h1><p className="page-subtitle">Bienvenue sur votre espace de gestion</p></div>
@@ -581,7 +811,7 @@ function StockAdmin(){
       </section>
     </main>
 
-    {/* Modales */}
+    {/* Modales - inchangées */}
     <Modal isOpen={mod.category} onClose={()=>{setMod(p=>({...p,category:false}));rCat()}} title={ec?'✏️ Modifier':'➕ Nouvelle catégorie'} onConfirm={ec?hdlUpdCat:hdlAddCat} confirmText={ec?'Modifier':'Créer'}>
       <FormField label="Nom" id="cat-name" error={fe.name}><input type="text" value={cf.name} onChange={e=>setCf({...cf,name:e.target.value})} autoFocus/></FormField>
       <FormField label="Description" id="cat-desc" error={fe.description}><textarea value={cf.description} onChange={e=>setCf({...cf,description:e.target.value})} rows="3"/></FormField>

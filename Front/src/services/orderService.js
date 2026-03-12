@@ -25,7 +25,6 @@ export const orderService = {
   getOrders: async (params = {}) => {
     return orderService.getAll(params);
   },
-
   /**
    * Récupérer une commande par ID
    * @param {string} id - ID de la commande
@@ -40,7 +39,6 @@ export const orderService = {
       throw error;
     }
   },
-
   /**
    * Créer une commande
    * @param {Object} orderData - Données de la commande
@@ -90,20 +88,6 @@ export const orderService = {
   // ===== MÉTHODES MÉTIER SPÉCIALISÉES =====
 
   /**
-   * Statistiques des commandes
-   * @returns {Promise<Object>} Statistiques
-   */
-  getStats: async () => {
-    try {
-      const response = await api.get('/orders/stats');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Erreur getStats orders:', error);
-      throw error;
-    }
-  },
-
-  /**
    * Mettre à jour le statut d'une commande
    * @param {string} id - ID de la commande
    * @param {string} status - Nouveau statut
@@ -118,7 +102,6 @@ export const orderService = {
       throw error;
     }
   },
-
   /**
    * Récupérer les commandes par client
    * @param {string} clientId - ID du client
@@ -134,7 +117,6 @@ export const orderService = {
       throw error;
     }
   },
-
   /**
    * Récupérer les commandes par statut
    * @param {string} status - Statut recherché
@@ -151,7 +133,6 @@ export const orderService = {
       throw error;
     }
   },
-
   /**
    * Récupérer les commandes récentes
    * @param {number} limit - Nombre de commandes
@@ -168,7 +149,6 @@ export const orderService = {
       throw error;
     }
   },
-
   /**
    * Générer un devis à partir d'une commande
    * @param {string} id - ID de la commande
@@ -183,7 +163,6 @@ export const orderService = {
       throw error;
     }
   },
-
   /**
    * Annuler une commande
    * @param {string} id - ID de la commande
