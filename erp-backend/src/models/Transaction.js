@@ -1,25 +1,39 @@
+<<<<<<< HEAD
 // models/Transaction.js
 const mongoose = require('mongoose');
 
 /**
  * Schéma pour une ligne d'écriture comptable
  */
+=======
+const mongoose = require('mongoose');
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const transactionEntrySchema = new mongoose.Schema({
   account: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Account',
+<<<<<<< HEAD
     required: [true, 'Le compte est requis'],
     index: true
+=======
+    required: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   debit: {
     type: Number,
     default: 0,
+<<<<<<< HEAD
     min: [0, 'Le débit ne peut pas être négatif'],
     set: v => Math.round(v * 100) / 100 // Arrondi à 2 décimales
+=======
+    min: 0
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   credit: {
     type: Number,
     default: 0,
+<<<<<<< HEAD
     min: [0, 'Le crédit ne peut pas être négatif'],
     set: v => Math.round(v * 100) / 100
   },
@@ -45,16 +59,28 @@ transactionEntrySchema.pre('validate', function() {
 /**
  * Schéma principal de la transaction
  */
+=======
+    min: 0
+  },
+  label: String
+});
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const transactionSchema = new mongoose.Schema({
   transactionNumber: {
     type: String,
     required: true,
+<<<<<<< HEAD
     unique: true,
     index: true
+=======
+    unique: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   date: {
     type: Date,
     required: true,
+<<<<<<< HEAD
     default: Date.now,
     index: true
   },
@@ -80,10 +106,24 @@ const transactionSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     set: v => Math.round(v * 100) / 100
+=======
+    default: Date.now
+  },
+  description: {
+    type: String,
+    required: [true, 'La description est requise']
+  },
+  entries: [transactionEntrySchema],
+  totalDebit: {
+    type: Number,
+    required: true,
+    default: 0
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   totalCredit: {
     type: Number,
     required: true,
+<<<<<<< HEAD
     default: 0,
     min: 0,
     set: v => Math.round(v * 100) / 100
@@ -364,3 +404,52 @@ transactionSchema.statics.getStats = async function(year) {
 };
 
 module.exports = mongoose.model('Transaction', transactionSchema);
+=======
+    default: 0
+  },
+  reference: String,
+  referenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'referenceModel'
+  },
+  referenceModel: {
+    type: String,
+    enum: ['Invoice', 'Order', 'Payment']
+  },
+  status: {
+    type: String,
+    enum: ['brouillon', 'validé', 'annulé'],
+    default: 'brouillon'
+  },
+  validatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  validatedAt: Date,
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
+}, {
+  timestamps: true
+});
+
+transactionSchema.pre('save', function() {
+  if (this.totalDebit !== this.totalCredit) {
+    throw new Error('Le total des débits doit être égal au total des crédits');
+  }
+});
+
+transactionSchema.pre('save', async function() {
+  if (this.isNew) {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const count = await mongoose.model('Transaction').countDocuments();
+    this.transactionNumber = `ECR-${year}${month}-${String(count + 1).padStart(4, '0')}`;
+  }
+});
+
+module.exports = mongoose.model('Transaction', transactionSchema);
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8

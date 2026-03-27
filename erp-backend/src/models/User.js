@@ -6,14 +6,22 @@ const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
     required: [true, 'Le prénom est requis'],
+<<<<<<< HEAD
     trim: true,
     maxlength: 50
+=======
+    trim: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   lastName: {
     type: String,
     required: [true, 'Le nom est requis'],
+<<<<<<< HEAD
     trim: true,
     maxlength: 50
+=======
+    trim: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   email: {
     type: String,
@@ -21,8 +29,12 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
+<<<<<<< HEAD
     match: [/^\S+@\S+\.\S+$/, 'Email invalide'],
     index: true
+=======
+    match: [/^\S+@\S+\.\S+$/, 'Email invalide']
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   password: {
     type: String,
@@ -33,8 +45,12 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: ['admin_principal', 'admin_facture', 'admin_stock', 'admin_finance', 'employe'],
+<<<<<<< HEAD
     default: 'employe',
     index: true
+=======
+    default: 'employe'
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   department: {
     type: String,
@@ -45,6 +61,7 @@ const userSchema = new mongoose.Schema({
   },
   isActive: {
     type: Boolean,
+<<<<<<< HEAD
     default: true,
     index: true
   },
@@ -86,11 +103,30 @@ userSchema.index({ isActive: 1, lastLogin: -1 });
 // Middleware pre-save pour hasher le mot de passe
 userSchema.pre('save', async function() {
   if (!this.isModified('password')) return;
+=======
+    default: true
+  },
+  phone: String,
+  avatar: String,
+  lastLogin: Date,
+  passwordChangedAt: Date,
+  passwordResetToken: String,
+  passwordResetExpires: Date
+}, {
+  timestamps: true
+});
+
+// Hash password before save
+userSchema.pre('save', async function() {
+  if (!this.isModified('password')) return;
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   this.passwordChangedAt = Date.now();
 });
 
+<<<<<<< HEAD
 // Middleware pour nettoyer les tokens expirés
 userSchema.pre('save', function() {
   if (this.isModified('password')) {
@@ -99,6 +135,8 @@ userSchema.pre('save', function() {
   }
 });
 
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 // Comparer mot de passe
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
@@ -107,6 +145,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
 // Générer token JWT
 userSchema.methods.generateToken = function() {
   return jwt.sign(
+<<<<<<< HEAD
     { 
       id: this._id, 
       email: this.email, 
@@ -160,3 +199,12 @@ userSchema.virtual('isOnline').get(function() {
 });
 
 module.exports = mongoose.model('User', userSchema);
+=======
+    { id: this._id, email: this.email, role: this.role },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRE }
+  );
+};
+
+module.exports = mongoose.model('User', userSchema);
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8

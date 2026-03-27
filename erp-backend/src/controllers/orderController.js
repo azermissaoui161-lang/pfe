@@ -614,6 +614,7 @@ const getPendingOrders = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // @desc    Récupérer les 10 commandes les plus récentes
 // @route   GET /api/orders/recent
 const getRecent = async (req, res) => {
@@ -712,6 +713,8 @@ const generateQuote = async (req, res) => {
   }
 };
 
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 // Fonction utilitaire pour générer numéro de commande
 const generateOrderNumber = async (type) => {
   const date = new Date();
@@ -732,8 +735,12 @@ module.exports = {
   updateOrderStatus,
   getOrderHistory,
   getOrderStats,
+<<<<<<< HEAD
   getPendingOrders,
   getRecent,
   cancelOrder,
   generateQuote
+=======
+  getPendingOrders
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 };

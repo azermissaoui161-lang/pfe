@@ -17,10 +17,14 @@ const notificationSchema = new mongoose.Schema({
       'commande_validee',
       'produit_epuise',
       'client_nouveau',
+<<<<<<< HEAD
       'transaction_effectuee',
       'facture_emise',
       'paiement_valide',
       'rapport_genere'
+=======
+      'transaction_effectuee'
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     ]
   },
   title: {
@@ -36,10 +40,13 @@ const notificationSchema = new mongoose.Schema({
     default: false,
     index: true
   },
+<<<<<<< HEAD
   readAt: {
     type: Date,
     default: null
   },
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   data: {
     type: mongoose.Schema.Types.Mixed,
     default: {}

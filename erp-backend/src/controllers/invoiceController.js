@@ -39,10 +39,17 @@ const createInvoice = async (req, res) => {
       }
 
       // Vérifier le stock
+<<<<<<< HEAD
       if (product.stock < item.quantity) {
         return res.status(400).json({
           success: false,
           message: `Stock insuffisant pour ${product.name}. Disponible: ${product.stock}`
+=======
+      if (product.currentStock < item.quantity) {
+        return res.status(400).json({ 
+          success: false,
+          message: `Stock insuffisant pour ${product.name}. Disponible: ${product.currentStock}` 
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         });
       }
 
@@ -65,12 +72,18 @@ const createInvoice = async (req, res) => {
       });
 
       // Décrémenter le stock
+<<<<<<< HEAD
       const stockBefore = product.stock;
       product.stock -= item.quantity;
+=======
+      const stockBefore = product.currentStock;
+      product.currentStock -= item.quantity;
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       await product.save();
 
       // Créer mouvement de stock
       await StockMovement.create({
+<<<<<<< HEAD
         productId: product._id,
         product: product.name,
         type: 'sortie',
@@ -78,6 +91,15 @@ const createInvoice = async (req, res) => {
         reason: 'sale',
         user: req.user?.email || 'system',
         note: 'Vente - Facture',
+=======
+        product: product._id,
+        type: 'sortie',
+        quantity: item.quantity,
+        reason: 'vente',
+        reference: 'facture',
+        stockBefore,
+        stockAfter: product.currentStock,
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         createdBy: req.user.id
       });
 
@@ -87,8 +109,13 @@ const createInvoice = async (req, res) => {
           req.user.id,
           'stock_faible',
           '⚠️ Stock faible',
+<<<<<<< HEAD
           `Le produit "${product.name}" a un stock critique (${product.stock})`,
           { productId: product._id, stock: product.stock }
+=======
+          `Le produit "${product.name}" a un stock critique (${product.currentStock})`,
+          { productId: product._id, stock: product.currentStock }
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         );
       }
     }
@@ -346,7 +373,11 @@ const deleteInvoice = async (req, res) => {
         if (item.product) {
           const product = await Product.findById(item.product);
           if (product) {
+<<<<<<< HEAD
             product.stock += item.quantity;
+=======
+            product.currentStock += item.quantity;
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
             await product.save();
           }
         }
@@ -778,6 +809,7 @@ const createCreditNote = async (req, res) => {
     }
 
     // Créer un avoir (facture négative)
+<<<<<<< HEAD
     const creditNoteDate = new Date();
     const creditNoteDueDate = new Date(creditNoteDate.getTime() + 24 * 60 * 60 * 1000); // +1 day
 
@@ -789,6 +821,16 @@ const createCreditNote = async (req, res) => {
       items: originalInvoice.items.map(item => ({
         ...item.toObject(),
         quantity: item.quantity
+=======
+    const creditNote = await Invoice.create({
+      type: 'avoir',
+      customer: originalInvoice.customer,
+      date: new Date(),
+      dueDate: new Date(),
+      items: originalInvoice.items.map(item => ({
+        ...item.toObject(),
+        quantity: -item.quantity // Quantité négative
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       })),
       notes: `Avoir pour la facture ${originalInvoice.invoiceNumber} - ${req.body.reason || ''}`,
       createdBy: req.user.id
@@ -799,7 +841,11 @@ const createCreditNote = async (req, res) => {
       if (item.product) {
         const product = await Product.findById(item.product);
         if (product) {
+<<<<<<< HEAD
           product.stock += item.quantity;
+=======
+          product.currentStock += item.quantity;
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           await product.save();
         }
       }

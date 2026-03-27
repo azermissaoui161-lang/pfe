@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const mongoose = require('mongoose');
 const User = require('../models/User');
 require('dotenv').config();
@@ -65,3 +66,11 @@ const createPresident = async () => {
 
 // Exécuter le script
 createPresident();
+=======
+const { seedUsers } = require('../../scripts/seedUsers');
+
+seedUsers().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8

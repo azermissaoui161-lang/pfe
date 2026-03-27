@@ -309,6 +309,7 @@ const getCustomerStats = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 const searchCustomers = async (req, res) => {
   try {
     const { q } = req.query;
@@ -337,6 +338,8 @@ const searchCustomers = async (req, res) => {
   }
 };
 
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 // ✅ UN SEUL export à la fin avec TOUTES les fonctions
 module.exports = {
   createCustomer,
@@ -345,6 +348,10 @@ module.exports = {
   updateCustomer,
   deleteCustomer,
   toggleCustomerStatus,
+<<<<<<< HEAD
   getCustomerStats,
   searchCustomers
+=======
+  getCustomerStats
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 };

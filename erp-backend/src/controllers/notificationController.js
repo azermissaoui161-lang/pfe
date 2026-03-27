@@ -1,7 +1,11 @@
 // src/controllers/notificationController.js
 const Notification = require('../models/Notification');
 
+<<<<<<< HEAD
 // Fonction utilitaire pour créer une notification
+=======
+// Définir les fonctions comme des constantes
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const createNotification = async (userId, type, title, message, data = {}, priority = 'moyenne') => {
   try {
     const notification = await Notification.create({
@@ -10,8 +14,12 @@ const createNotification = async (userId, type, title, message, data = {}, prior
       title,
       message,
       data,
+<<<<<<< HEAD
       priority,
       read: false
+=======
+      priority
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     });
     return notification;
   } catch (error) {
@@ -20,6 +28,7 @@ const createNotification = async (userId, type, title, message, data = {}, prior
   }
 };
 
+<<<<<<< HEAD
 // GET /api/notifications - Récupérer les notifications de l'utilisateur
 const getUserNotifications = async (req, res) => {
   try {
@@ -27,6 +36,14 @@ const getUserNotifications = async (req, res) => {
 
     let query = { user: req.user.id };
     if (read !== undefined) query.read = read === 'true';
+=======
+const getUserNotifications = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, isRead } = req.query;
+
+    let query = { user: req.user.id };
+    if (isRead !== undefined) query.isRead = isRead === 'true';
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 
     const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
@@ -36,7 +53,11 @@ const getUserNotifications = async (req, res) => {
     const total = await Notification.countDocuments(query);
     const unreadCount = await Notification.countDocuments({ 
       user: req.user.id, 
+<<<<<<< HEAD
       read: false 
+=======
+      isRead: false 
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     });
 
     res.json({
@@ -55,7 +76,10 @@ const getUserNotifications = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // PATCH /api/notifications/:id/read - Marquer une notification comme lue
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const markAsRead = async (req, res) => {
   try {
     const notification = await Notification.findOne({
@@ -67,7 +91,11 @@ const markAsRead = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Notification non trouvée' });
     }
 
+<<<<<<< HEAD
     notification.read = true;
+=======
+    notification.isRead = true;
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     notification.readAt = Date.now();
     await notification.save();
 
@@ -77,12 +105,20 @@ const markAsRead = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // PATCH /api/notifications/read-all - Marquer toutes comme lues
 const markAllAsRead = async (req, res) => {
   try {
     await Notification.updateMany(
       { user: req.user.id, read: false },
       { read: true, readAt: Date.now() }
+=======
+const markAllAsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { user: req.user.id, isRead: false },
+      { isRead: true, readAt: Date.now() }
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     );
 
     res.json({ success: true, message: 'Toutes les notifications ont été marquées comme lues' });
@@ -91,6 +127,7 @@ const markAllAsRead = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // PATCH /api/notifications/:id/unread - Marquer une notification comme non lue
 const markAsUnread = async (req, res) => {
   try {
@@ -114,6 +151,8 @@ const markAsUnread = async (req, res) => {
 };
 
 // DELETE /api/notifications/:id - Supprimer une notification
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const deleteNotification = async (req, res) => {
   try {
     const notification = await Notification.findOneAndDelete({
@@ -131,7 +170,10 @@ const deleteNotification = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // DELETE /api/notifications - Supprimer toutes les notifications
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const deleteAllNotifications = async (req, res) => {
   try {
     await Notification.deleteMany({ user: req.user.id });
@@ -141,12 +183,19 @@ const deleteAllNotifications = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // GET /api/notifications/unread-count - Compter les notifications non lues
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const getUnreadCount = async (req, res) => {
   try {
     const count = await Notification.countDocuments({ 
       user: req.user.id, 
+<<<<<<< HEAD
       read: false 
+=======
+      isRead: false 
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     });
 
     res.json({ success: true, data: { unreadCount: count } });
@@ -160,7 +209,10 @@ module.exports = {
   createNotification,
   getUserNotifications,
   markAsRead,
+<<<<<<< HEAD
   markAsUnread,
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   markAllAsRead,
   deleteNotification,
   deleteAllNotifications,

@@ -4,6 +4,7 @@ const Account = require('../models/Account');
 const AuditLog = require('../models/AuditLog');
 const mongoose = require('mongoose');
 
+<<<<<<< HEAD
 /**
  * Formatter une transaction pour le frontend
  */
@@ -123,10 +124,44 @@ exports.create = async (req, res) => {
 
     // Valider les écritures
     const { totalDebit, totalCredit } = await validateEntries(entries);
+=======
+// @desc    Créer une écriture comptable
+// @route   POST /api/transactions
+const createTransaction = async (req, res) => {
+  try {
+    const { date, description, entries, reference, referenceId, referenceModel } = req.body;
+
+    // Calculer les totaux
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    for (const entry of entries) {
+      totalDebit += entry.debit || 0;
+      totalCredit += entry.credit || 0;
+
+      // Vérifier que le compte existe
+      const account = await Account.findById(entry.account);
+      if (!account) {
+        return res.status(404).json({ 
+          success: false,
+          message: `Compte ${entry.account} non trouvé` 
+        });
+      }
+    }
+
+    // Vérifier l'équilibre
+    if (totalDebit !== totalCredit) {
+      return res.status(400).json({ 
+        success: false,
+        message: `Déséquilibre: Débit (${totalDebit}) ≠ Crédit (${totalCredit})` 
+      });
+    }
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 
     // Générer le numéro de transaction
     const transactionNumber = await generateTransactionNumber();
 
+<<<<<<< HEAD
     // Créer la transaction
     const transaction = await Transaction.create([{
       transactionNumber,
@@ -138,6 +173,13 @@ exports.create = async (req, res) => {
         credit: parseFloat(e.credit) || 0,
         label: e.label || description
       })),
+=======
+    const transaction = await Transaction.create({
+      transactionNumber,
+      date: date || new Date(),
+      description,
+      entries,
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       totalDebit,
       totalCredit,
       reference,
@@ -145,6 +187,7 @@ exports.create = async (req, res) => {
       referenceModel,
       status: 'brouillon',
       createdBy: req.user._id
+<<<<<<< HEAD
     }], { session });
 
     // Journaliser
@@ -416,17 +459,222 @@ exports.delete = async (req, res) => {
     if (!transaction) {
       return res.status(404).json({ 
         success: false, 
+=======
+    });
+
+    await AuditLog.create({
+      user: req.user._id,
+      action: 'CREATE',
+      entity: 'TRANSACTION',
+      entityId: transaction._id,
+      details: { 
+        transactionNumber: transaction.transactionNumber,
+        totalDebit,
+        totalCredit
+      },
+      ipAddress: req.ip
+    });
+
+    res.status(201).json({
+      success: true,
+      data: transaction,
+      message: 'Transaction créée avec succès'
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Récupérer toutes les transactions
+// @route   GET /api/transactions
+const getAllTransactions = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, startDate, endDate, accountId, status } = req.query;
+    
+    const query = {};
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+    }
+
+    if (status) query.status = status;
+    
+    if (accountId) {
+      query['entries.account'] = accountId;
+    }
+
+    const transactions = await Transaction.find(query)
+      .populate('entries.account', 'code name')
+      .populate('createdBy', 'firstName lastName')
+      .populate('validatedBy', 'firstName lastName')
+      .sort({ date: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const total = await Transaction.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: transactions,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Récupérer une transaction par ID
+// @route   GET /api/transactions/:id
+const getTransactionById = async (req, res) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id)
+      .populate('entries.account', 'code name')
+      .populate('createdBy', 'firstName lastName')
+      .populate('validatedBy', 'firstName lastName');
+
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Transaction non trouvée' 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: transaction
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Mettre à jour une transaction
+// @route   PUT /api/transactions/:id
+const updateTransaction = async (req, res) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id);
+
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false,
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         message: 'Transaction non trouvée' 
       });
     }
 
     if (transaction.status !== 'brouillon') {
       return res.status(400).json({ 
+<<<<<<< HEAD
         success: false, 
+=======
+        success: false,
+        message: 'Impossible de modifier une transaction validée' 
+      });
+    }
+
+    const { description, entries } = req.body;
+
+    if (description) transaction.description = description;
+    
+    if (entries) {
+      let totalDebit = 0;
+      let totalCredit = 0;
+
+      for (const entry of entries) {
+        totalDebit += entry.debit || 0;
+        totalCredit += entry.credit || 0;
+
+        const account = await Account.findById(entry.account);
+        if (!account) {
+          return res.status(404).json({ 
+            success: false,
+            message: `Compte ${entry.account} non trouvé` 
+          });
+        }
+      }
+
+      if (totalDebit !== totalCredit) {
+        return res.status(400).json({ 
+          success: false,
+          message: `Déséquilibre: Débit (${totalDebit}) ≠ Crédit (${totalCredit})` 
+        });
+      }
+
+      transaction.entries = entries;
+      transaction.totalDebit = totalDebit;
+      transaction.totalCredit = totalCredit;
+    }
+
+    await transaction.save();
+
+    await AuditLog.create({
+      user: req.user._id,
+      action: 'UPDATE',
+      entity: 'TRANSACTION',
+      entityId: transaction._id,
+      details: { transactionNumber: transaction.transactionNumber },
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      data: transaction,
+      message: 'Transaction mise à jour'
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Supprimer une transaction
+// @route   DELETE /api/transactions/:id
+const deleteTransaction = async (req, res) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id);
+
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Transaction non trouvée' 
+      });
+    }
+
+    if (transaction.status !== 'brouillon') {
+      return res.status(400).json({ 
+        success: false,
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         message: 'Impossible de supprimer une transaction validée' 
       });
     }
 
+<<<<<<< HEAD
     await transaction.deleteOne({ session });
 
     // Journaliser
@@ -440,11 +688,24 @@ exports.delete = async (req, res) => {
     }], { session });
 
     await session.commitTransaction();
+=======
+    await transaction.deleteOne();
+
+    await AuditLog.create({
+      user: req.user._id,
+      action: 'DELETE',
+      entity: 'TRANSACTION',
+      entityId: req.params.id,
+      details: { transactionNumber: transaction.transactionNumber },
+      ipAddress: req.ip
+    });
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 
     res.json({
       success: true,
       message: 'Transaction supprimée avec succès'
     });
+<<<<<<< HEAD
 
   } catch (error) {
     await session.abortTransaction();
@@ -473,17 +734,43 @@ exports.validate = async (req, res) => {
     if (!transaction) {
       return res.status(404).json({ 
         success: false, 
+=======
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Valider une transaction
+// @route   PATCH /api/transactions/:id/validate
+const validateTransaction = async (req, res) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id);
+
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false,
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         message: 'Transaction non trouvée' 
       });
     }
 
     if (transaction.status === 'validé') {
       return res.status(400).json({ 
+<<<<<<< HEAD
         success: false, 
+=======
+        success: false,
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         message: 'Transaction déjà validée' 
       });
     }
 
+<<<<<<< HEAD
     // Mettre à jour les soldes des comptes
     for (const entry of transaction.entries) {
       const account = await Account.findById(entry.account).session(session);
@@ -510,10 +797,28 @@ exports.validate = async (req, res) => {
 
     // Journaliser
     await AuditLog.create([{
+=======
+    transaction.status = 'validé';
+    transaction.validatedBy = req.user._id;
+    transaction.validatedAt = Date.now();
+    await transaction.save();
+
+    // Mettre à jour les soldes des comptes
+    for (const entry of transaction.entries) {
+      const account = await Account.findById(entry.account);
+      if (account) {
+        account.balance += (entry.debit || 0) - (entry.credit || 0);
+        await account.save();
+      }
+    }
+
+    await AuditLog.create({
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       user: req.user._id,
       action: 'VALIDATE',
       entity: 'TRANSACTION',
       entityId: transaction._id,
+<<<<<<< HEAD
       details: { 
         transactionNumber: transaction.transactionNumber,
         totalDebit: transaction.totalDebit,
@@ -555,16 +860,50 @@ exports.getLedger = async (req, res) => {
         message: 'ID compte invalide' 
       });
     }
+=======
+      details: { transactionNumber: transaction.transactionNumber },
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      data: transaction,
+      message: 'Transaction validée avec succès'
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Grand livre des comptes
+// @route   GET /api/transactions/ledger/:accountId
+const getAccountLedger = async (req, res) => {
+  try {
+    const { accountId } = req.params;
+    const { startDate, endDate } = req.query;
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 
     const account = await Account.findById(accountId);
     if (!account) {
       return res.status(404).json({ 
+<<<<<<< HEAD
         success: false, 
+=======
+        success: false,
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         message: 'Compte non trouvé' 
       });
     }
 
+<<<<<<< HEAD
     // Construire la requête
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     const matchStage = {
       status: 'validé',
       'entries.account': new mongoose.Types.ObjectId(accountId)
@@ -576,11 +915,15 @@ exports.getLedger = async (req, res) => {
       if (endDate) matchStage.date.$lte = new Date(endDate);
     }
 
+<<<<<<< HEAD
     // Récupérer les transactions
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     const transactions = await Transaction.aggregate([
       { $match: matchStage },
       { $unwind: '$entries' },
       { $match: { 'entries.account': new mongoose.Types.ObjectId(accountId) } },
+<<<<<<< HEAD
       { $sort: { date: 1 } },
       { $limit: parseInt(limit) }
     ]);
@@ -638,6 +981,29 @@ exports.getLedger = async (req, res) => {
         credit,
         balance: currentBalance,
         reference: trans.reference
+=======
+      { $sort: { date: 1 } }
+    ]);
+
+    // Calculer le solde cumulé
+    let balance = 0;
+    const ledgerEntries = [];
+
+    for (const trans of transactions) {
+      if (account.type === 'actif' || account.type === 'charge') {
+        balance += (trans.entries.debit || 0) - (trans.entries.credit || 0);
+      } else {
+        balance += (trans.entries.credit || 0) - (trans.entries.debit || 0);
+      }
+
+      ledgerEntries.push({
+        date: trans.date,
+        transactionNumber: trans.transactionNumber,
+        description: trans.description,
+        debit: trans.entries.debit,
+        credit: trans.entries.credit,
+        balance
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       });
     }
 
@@ -645,11 +1011,15 @@ exports.getLedger = async (req, res) => {
       success: true,
       data: {
         account: {
+<<<<<<< HEAD
           id: account._id,
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           code: account.code,
           name: account.name,
           type: account.type
         },
+<<<<<<< HEAD
         openingBalance,
         entries,
         closingBalance: currentBalance
@@ -663,14 +1033,38 @@ exports.getLedger = async (req, res) => {
 
 // ===== GET /api/transactions/trial-balance =====
 exports.getTrialBalance = async (req, res) => {
+=======
+        entries: ledgerEntries,
+        finalBalance: balance
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Balance générale
+// @route   GET /api/transactions/trial-balance
+const getTrialBalance = async (req, res) => {
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   try {
     const { date } = req.query;
     const balanceDate = date ? new Date(date) : new Date();
 
+<<<<<<< HEAD
     // Récupérer tous les comptes actifs
     const accounts = await Account.find({ isActive: true }).sort('code');
 
     // Récupérer les transactions validées jusqu'à la date
+=======
+    const accounts = await Account.find({ isActive: true });
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     const transactions = await Transaction.aggregate([
       {
         $match: {
@@ -688,12 +1082,17 @@ exports.getTrialBalance = async (req, res) => {
       }
     ]);
 
+<<<<<<< HEAD
     // Construire la balance
     const trialBalance = accounts.map(account => {
       const trans = transactions.find(t => 
         t._id.toString() === account._id.toString()
       );
       
+=======
+    const trialBalance = accounts.map(account => {
+      const trans = transactions.find(t => t._id.toString() === account._id.toString());
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       const debit = trans?.totalDebit || 0;
       const credit = trans?.totalCredit || 0;
       
@@ -708,6 +1107,7 @@ exports.getTrialBalance = async (req, res) => {
         accountCode: account.code,
         accountName: account.name,
         accountType: account.type,
+<<<<<<< HEAD
         debit: Math.round(debit * 100) / 100,
         credit: Math.round(credit * 100) / 100,
         balance: Math.round(balance * 100) / 100
@@ -715,11 +1115,23 @@ exports.getTrialBalance = async (req, res) => {
     });
 
     // Calculer les totaux
+=======
+        debit,
+        credit,
+        balance
+      };
+    });
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     const totals = trialBalance.reduce(
       (acc, curr) => ({
         totalDebit: acc.totalDebit + curr.debit,
         totalCredit: acc.totalCredit + curr.credit,
+<<<<<<< HEAD
         totalBalance: acc.totalBalance + Math.abs(curr.balance)
+=======
+        totalBalance: acc.totalBalance + curr.balance
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       }),
       { totalDebit: 0, totalCredit: 0, totalBalance: 0 }
     );
@@ -728,6 +1140,7 @@ exports.getTrialBalance = async (req, res) => {
       success: true,
       data: {
         asOf: balanceDate,
+<<<<<<< HEAD
         accounts: trialBalance,
         totals: {
           debit: Math.round(totals.totalDebit * 100) / 100,
@@ -1031,4 +1444,39 @@ module.exports = {
   getByAccount: exports.getByAccount,
   getByDateRange: exports.getByDateRange,
   exportToCSV: exports.exportToCSV
+=======
+        entries: trialBalance,
+        totals
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message 
+    });
+  }
+};
+
+// Fonction utilitaire pour générer numéro de transaction
+const generateTransactionNumber = async () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const count = await Transaction.countDocuments();
+  return `ECR-${year}${month}-${String(count + 1).padStart(4, '0')}`;
+};
+
+// ✅ UN SEUL export à la fin avec TOUTES les fonctions
+module.exports = {
+  createTransaction,
+  getAllTransactions,
+  getTransactionById,
+  updateTransaction,
+  deleteTransaction,
+  validateTransaction,
+  getAccountLedger,
+  getTrialBalance
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 };

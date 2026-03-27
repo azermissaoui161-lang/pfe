@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // transactionRoutes.js - Version corrigée pour votre controller
 const express = require('express');
 const router = express.Router();
@@ -92,5 +93,38 @@ router.patch('/:id/validate',
   authorize('admin_principal'), 
   transactionController.validate
 );
+=======
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
+const { authorize } = require('../middleware/roleMiddleware');
+const {
+  createTransaction,
+  getAllTransactions,
+  getTransactionById,
+  updateTransaction,
+  deleteTransaction,
+  validateTransaction,
+  getAccountLedger,
+  getTrialBalance
+} = require('../controllers/transactionController');
+
+router.use(protect);
+
+// Routes spécifiques
+router.get('/trial-balance', authorize('admin_principal', 'admin_finance'), getTrialBalance);
+router.get('/ledger/:accountId', authorize('admin_principal', 'admin_finance'), getAccountLedger);
+router.patch('/:id/validate', authorize('admin_principal', 'admin_finance'), validateTransaction);
+
+// Routes CRUD
+router.route('/')
+  .get(authorize('admin_principal', 'admin_finance'), getAllTransactions)
+  .post(authorize('admin_principal', 'admin_finance'), createTransaction);
+
+router.route('/:id')
+  .get(getTransactionById)
+  .put(authorize('admin_principal', 'admin_finance'), updateTransaction)
+  .delete(authorize('admin_principal'), deleteTransaction);
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 
 module.exports = router;

@@ -8,6 +8,7 @@ const {
   getPaymentById,
   updatePayment,
   deletePayment,
+<<<<<<< HEAD
   validatePayment,    // ← AJOUTÉ (manquait)
   getPaymentStats,
   cancelPayment,
@@ -48,10 +49,20 @@ router.get('/export/:format',
 
 // GET /api/payments - Liste tous les paiements
 // POST /api/payments - Créer un paiement
+=======
+  getPaymentStats
+} = require('../controllers/paymentController');
+
+router.use(protect);
+
+router.get('/stats', authorize('admin_principal', 'admin_finance', 'admin_facture'), getPaymentStats);
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 router.route('/')
   .get(authorize('admin_principal', 'admin_finance', 'admin_facture'), getAllPayments)
   .post(authorize('admin_principal', 'admin_finance', 'admin_facture'), createPayment);
 
+<<<<<<< HEAD
 // ===== ROUTES PAR ID =====
 
 // GET /api/payments/:id - Détail d'un paiement
@@ -76,4 +87,11 @@ router.post('/:id/cancel',
   cancelPayment
 );
 
+=======
+router.route('/:id')
+  .get(getPaymentById)
+  .put(authorize('admin_principal', 'admin_finance', 'admin_facture'), updatePayment)
+  .delete(authorize('admin_principal'), deletePayment);
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 module.exports = router;

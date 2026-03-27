@@ -1,6 +1,9 @@
 const app = require('./src/app');
 const connectDB = require('./src/config/database');
+<<<<<<< HEAD
 const seedDatabase = require('./src/scripts/seedDatabase');
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 require('dotenv').config();
 
 const PORT = process.env.PORT || 5000;
@@ -11,10 +14,14 @@ const startServer = async () => {
     // Tentative de connexion à MongoDB
     await connectDB();
     console.log('✅ Connexion DB établie');
+<<<<<<< HEAD
 
     // Run seed (safe - only inserts if empty)
     await seedDatabase();
 
+=======
+    
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     // Démarrer le serveur
     const server = app.listen(PORT, () => {
       console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
@@ -27,7 +34,11 @@ const startServer = async () => {
 
   } catch (error) {
     console.error('❌ Erreur au démarrage:', error.message);
+<<<<<<< HEAD
     process.exit(1);
+=======
+    // On ne quitte pas, on continue pour voir l'erreur
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   }
 };
 

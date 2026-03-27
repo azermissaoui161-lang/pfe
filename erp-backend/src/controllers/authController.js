@@ -63,11 +63,17 @@ exports.register = async (req, res) => {
 // @desc    Connexion
 // @route   POST /api/auth/login
 exports.login = async (req, res) => {
+<<<<<<< HEAD
+=======
+  console.log('🔥 LOGIN EXÉCUTÉ - req.url:', req.url);
+  console.log('   req.body:', req.body);
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   try {
     const { email, password } = req.body;
 
     // Vérifier email et mot de passe
     const user = await User.findOne({ email }).select('+password');
+<<<<<<< HEAD
 
     // Debug temporaire — à supprimer après résolution
     if (user) {
@@ -81,6 +87,12 @@ exports.login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Email ou mot de passe incorrect'
+=======
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Email ou mot de passe incorrect' 
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       });
     }
 
@@ -148,6 +160,7 @@ exports.logout = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // @desc    Rafraîchir le token
 // @route   POST /api/auth/refresh-token
 exports.refreshToken = async (req, res) => {
@@ -184,5 +197,15 @@ exports.refreshToken = async (req, res) => {
       success: false, 
       message: 'Refresh token invalide' 
     });
+=======
+// @desc    Récupérer profil
+// @route   GET /api/auth/me
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   }
 };

@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 // routes/customerRoutes.js
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
@@ -9,6 +12,7 @@ const {
   getCustomerById,
   updateCustomer,
   deleteCustomer,
+<<<<<<< HEAD
   toggleCustomerStatus,  // ← Présent dans le controller
   getCustomerStats,      // ← Présent dans le controller
   searchCustomers
@@ -27,6 +31,17 @@ router.patch('/:id/toggle', authorize('admin_principal'), toggleCustomerStatus);
 // GET /api/orders?customer=:customerId
 
 // Routes principales
+=======
+  getCustomerStats,
+  getCustomerOrders  // ← Vérifiez que cette fonction existe
+} = require('../controllers/customerController');
+
+router.use(protect);
+
+router.get('/stats', getCustomerStats);
+//router.get('/:id/orders', getCustomerOrders);  // ← Ligne 18
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 router.route('/')
   .get(authorize('admin_principal', 'admin_facture', 'admin_finance'), getAllCustomers)
   .post(authorize('admin_principal', 'admin_facture'), createCustomer);

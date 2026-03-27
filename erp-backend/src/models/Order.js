@@ -96,19 +96,34 @@ orderSchema.pre('save', async function() {
   }
 });
 
+<<<<<<< HEAD
 orderSchema.pre('save', function() {
   let subtotal = 0;
 
+=======
+orderSchema.pre('save', function(next) {
+  let subtotal = 0;
+  
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   this.items.forEach(item => {
     const itemTotal = item.quantity * item.unitPrice;
     item.totalHT = itemTotal;
     item.totalTTC = itemTotal * 1.2;
     subtotal += itemTotal;
   });
+<<<<<<< HEAD
 
   this.subtotalHT = subtotal;
   this.tax = subtotal * 0.2;
   this.totalTTC = subtotal * 1.2;
+=======
+  
+  this.subtotalHT = subtotal;
+  this.tax = subtotal * 0.2;
+  this.totalTTC = subtotal * 1.2;
+  
+  next();
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 });
 
 module.exports = mongoose.model('Order', orderSchema);

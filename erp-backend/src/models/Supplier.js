@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const supplierSchema = new mongoose.Schema({
+<<<<<<< HEAD
   name: { 
     type: String, 
     required: true,
@@ -94,6 +95,52 @@ supplierSchema.statics.findActive = function() {
 supplierSchema.virtual('yearsActive').get(function() {
   const years = (Date.now() - this.since) / (1000 * 60 * 60 * 24 * 365);
   return Math.round(years * 10) / 10;
+=======
+  name: {
+    type: String,
+    required: [true, 'Le nom du fournisseur est requis'],
+    trim: true
+  },
+  email: {
+    type: String,
+    lowercase: true,
+    trim: true
+  },
+  phone: {
+    type: String,
+    required: [true, 'Le téléphone est requis']
+  },
+  address: {
+    type: String,
+    required: [true, 'L\'adresse est requise']
+  },
+  taxId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  contactPerson: {
+    name: String,
+    phone: String,
+    email: String
+  },
+  paymentTerms: {
+    type: String,
+    default: '30 jours'
+  },
+  notes: String,
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
+}, {
+  timestamps: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 });
 
 module.exports = mongoose.model('Supplier', supplierSchema);

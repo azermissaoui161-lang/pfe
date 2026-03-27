@@ -1,17 +1,29 @@
+<<<<<<< HEAD
 // models/Customer.js
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const mongoose = require('mongoose');
 
 const customerSchema = new mongoose.Schema({
   customerNumber: {
     type: String,
+<<<<<<< HEAD
     unique: true,
     sparse: true // Permet d'avoir des null temporaires avant génération
+=======
+    required: true,
+    unique: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   type: {
     type: String,
     enum: ['particulier', 'professionnel'],
+<<<<<<< HEAD
     default: 'particulier',
     required: [true, 'Le type de client est requis']
+=======
+    default: 'particulier'
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   civility: {
     type: String,
@@ -21,14 +33,22 @@ const customerSchema = new mongoose.Schema({
   firstName: {
     type: String,
     required: [true, 'Le prénom est requis'],
+<<<<<<< HEAD
     trim: true,
     maxlength: [50, 'Le prénom ne peut pas dépasser 50 caractères']
+=======
+    trim: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   lastName: {
     type: String,
     required: [true, 'Le nom est requis'],
+<<<<<<< HEAD
     trim: true,
     maxlength: [50, 'Le nom ne peut pas dépasser 50 caractères']
+=======
+    trim: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   email: {
     type: String,
@@ -36,6 +56,7 @@ const customerSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
+<<<<<<< HEAD
     match: [/^\S+@\S+\.\S+$/, 'Email invalide'],
     index: true
   },
@@ -107,6 +128,24 @@ const customerSchema = new mongoose.Schema({
     trim: true,
     uppercase: true
   },
+=======
+    match: [/^\S+@\S+\.\S+$/, 'Email invalide']
+  },
+  phone: {
+    type: String,
+    required: [true, 'Le téléphone est requis']
+  },
+  mobile: String,
+  address: {
+    street: { type: String, required: true },
+    city: { type: String, required: true },
+    postalCode: { type: String, required: true },
+    country: { type: String, default: 'France' }
+  },
+  company: String,
+  siret: String,
+  tvaIntra: String,
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   paymentTerms: {
     type: String,
     enum: ['comptant', '15_jours', '30_jours', '45_jours', '60_jours'],
@@ -115,6 +154,7 @@ const customerSchema = new mongoose.Schema({
   creditLimit: {
     type: Number,
     default: 0,
+<<<<<<< HEAD
     min: [0, 'La limite de crédit ne peut pas être négative']
   },
   notes: {
@@ -126,10 +166,19 @@ const customerSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
     index: true
+=======
+    min: 0
+  },
+  notes: String,
+  isActive: {
+    type: Boolean,
+    default: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+<<<<<<< HEAD
     required: true,
     index: true
   },
@@ -231,3 +280,22 @@ customerSchema.statics.getStatsByType = async function() {
 };
 
 module.exports = mongoose.model('Customer', customerSchema);
+=======
+    required: true
+  }
+}, {
+  timestamps: true
+});
+
+customerSchema.pre('save', async function() {
+  if (this.isNew) {
+    const count = await mongoose.model('Customer').countDocuments();
+    const year = new Date().getFullYear();
+    this.customerNumber = `CLI-${year}-${String(count + 1).padStart(5, '0')}`;
+  }
+});
+
+customerSchema.index({ firstName: 'text', lastName: 'text', email: 'text' });
+
+module.exports = mongoose.model('Customer', customerSchema);
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8

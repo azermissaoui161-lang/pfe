@@ -45,9 +45,15 @@ const getPrincipalDashboard = async (req, res) => {
         $group: {
           _id: null,
           totalInvoices: { $sum: 1 },
+<<<<<<< HEAD
           totalRevenue: { $sum: '$totalTTC' },
           paidAmount: { $sum: { $cond: [{ $eq: ['$status', 'payée'] }, '$totalTTC', 0] } },
           unpaidAmount: { $sum: { $cond: [{ $ne: ['$status', 'payée'] }, '$totalTTC', 0] } },
+=======
+          totalRevenue: { $sum: '$total' },
+          paidAmount: { $sum: { $cond: [{ $eq: ['$status', 'payée'] }, '$total', 0] } },
+          unpaidAmount: { $sum: { $cond: [{ $ne: ['$status', 'payée'] }, '$total', 0] } },
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           paidCount: { $sum: { $cond: [{ $eq: ['$status', 'payée'] }, 1, 0] } },
           overdueCount: {
             $sum: { 
@@ -74,7 +80,11 @@ const getPrincipalDashboard = async (req, res) => {
         $group: {
           _id: null,
           count: { $sum: 1 },
+<<<<<<< HEAD
           total: { $sum: '$totalTTC' }
+=======
+          total: { $sum: '$total' }
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         }
       }
     ]);
@@ -95,7 +105,11 @@ const getPrincipalDashboard = async (req, res) => {
             year: { $year: '$createdAt' },
             month: { $month: '$createdAt' }
           },
+<<<<<<< HEAD
           total: { $sum: '$totalTTC' },
+=======
+          total: { $sum: '$total' },
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           count: { $sum: 1 }
         }
       },
@@ -107,7 +121,11 @@ const getPrincipalDashboard = async (req, res) => {
       {
         $group: {
           _id: '$customer',
+<<<<<<< HEAD
           totalSpent: { $sum: '$totalTTC' },
+=======
+          totalSpent: { $sum: '$total' },
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           invoiceCount: { $sum: 1 }
         }
       },
@@ -129,6 +147,7 @@ const getPrincipalDashboard = async (req, res) => {
         $group: {
           _id: null,
           totalProducts: { $sum: 1 },
+<<<<<<< HEAD
           totalValue: { $sum: { $multiply: ['$stock', '$price'] } },
           totalSellingValue: { $sum: { $multiply: ['$stock', '$price'] } },
           totalItems: { $sum: '$stock' },
@@ -137,6 +156,16 @@ const getPrincipalDashboard = async (req, res) => {
           },
           outOfStock: {
             $sum: { $cond: [{ $eq: ['$stock', 0] }, 1, 0] }
+=======
+          totalValue: { $sum: { $multiply: ['$currentStock', '$purchasePrice'] } },
+          totalSellingValue: { $sum: { $multiply: ['$currentStock', '$sellingPrice'] } },
+          totalItems: { $sum: '$currentStock' },
+          lowStock: { 
+            $sum: { $cond: [{ $lt: ['$currentStock', '$alertThreshold'] }, 1, 0] } 
+          },
+          outOfStock: { 
+            $sum: { $cond: [{ $eq: ['$currentStock', 0] }, 1, 0] } 
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           }
         }
       }
@@ -149,7 +178,11 @@ const getPrincipalDashboard = async (req, res) => {
         $group: {
           _id: '$category',
           count: { $sum: 1 },
+<<<<<<< HEAD
           totalValue: { $sum: { $multiply: ['$stock', '$price'] } }
+=======
+          totalValue: { $sum: { $multiply: ['$currentStock', '$purchasePrice'] } }
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         }
       },
       { $sort: { count: -1 } }
@@ -157,10 +190,16 @@ const getPrincipalDashboard = async (req, res) => {
 
     // Produits en stock faible (détail)
     const lowStockProducts = await Product.find({
+<<<<<<< HEAD
       $expr: { $lte: ['$stock', '$minStock'] },
       deletedAt: null
     })
     .populate('supplierId', 'name phone')
+=======
+      $expr: { $lte: ['$currentStock', '$alertThreshold'] }
+    })
+    .populate('supplier', 'name phone')
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     .limit(10);
 
     // Mouvements de stock récents
@@ -214,6 +253,7 @@ const getPrincipalDashboard = async (req, res) => {
       {
         $group: {
           _id: null,
+<<<<<<< HEAD
           total: { $sum: '$totalTTC' },
           count: { $sum: 1 },
           overdue: {
@@ -221,6 +261,15 @@ const getPrincipalDashboard = async (req, res) => {
               $cond: [
                 { $lt: ['$dueDate', new Date()] },
                 '$totalTTC',
+=======
+          total: { $sum: '$total' },
+          count: { $sum: 1 },
+          overdue: {
+            $sum: { 
+              $cond: [
+                { $lt: ['$dueDate', new Date()] },
+                '$total',
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
                 0
               ]
             }
@@ -690,7 +739,11 @@ const getGlobalStats = async (req, res) => {
       Supplier.countDocuments({ isActive: true }),
       Invoice.aggregate([
         { $match: { status: 'payée' } },
+<<<<<<< HEAD
         { $group: { _id: null, total: { $sum: '$totalTTC' } } }
+=======
+        { $group: { _id: null, total: { $sum: '$total' } } }
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       ])
     ]);
 

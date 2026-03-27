@@ -8,7 +8,10 @@
     "dev": "nodemon server.js",
     "seed:users": "node scripts/seedUsers.js",
     "create:admin": "node scripts/createAdmin.js",
+<<<<<<< HEAD
     "reset:users": "node src/scripts/resetUsers.js",
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,7 +19,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+<<<<<<< HEAD
     "bcryptjs": "^2.4.3",
+=======
+    "bcryptjs": "^3.0.3",
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "exceljs": "^4.4.0",

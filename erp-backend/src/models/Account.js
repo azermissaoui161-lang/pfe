@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 // models/Account.js
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const mongoose = require('mongoose');
 
 const accountSchema = new mongoose.Schema({
@@ -6,6 +9,7 @@ const accountSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Le code compte est requis'],
     unique: true,
+<<<<<<< HEAD
     uppercase: true,
     trim: true,
     match: [/^[0-9]+$/, 'Le code doit contenir uniquement des chiffres'],
@@ -16,19 +20,31 @@ const accountSchema = new mongoose.Schema({
     required: [true, 'Le nom du compte est requis'],
     trim: true,
     maxlength: [100, 'Le nom ne peut pas dépasser 100 caractères']
+=======
+    uppercase: true
+  },
+  name: {
+    type: String,
+    required: [true, 'Le nom du compte est requis']
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   type: {
     type: String,
     required: true,
+<<<<<<< HEAD
     enum: {
       values: ['actif', 'passif', 'produit', 'charge', 'tresorerie'],
       message: 'Type de compte invalide'
     },
     index: true
+=======
+    enum: ['actif', 'passif', 'produit', 'charge', 'tresorerie']
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   category: {
     type: String,
     required: true,
+<<<<<<< HEAD
     enum: {
       values: [
         'banque', 'caisse', 'client', 'fournisseur', 
@@ -44,10 +60,22 @@ const accountSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Le solde ne peut pas être négatif'],
     set: v => Math.round(v * 100) / 100 // Arrondi à 2 décimales
+=======
+    enum: [
+      'banque', 'caisse', 'client', 'fournisseur', 
+      'capital', 'vente', 'achat', 'salaire', 'taxe',
+      'immobilisation', 'stock', 'emprunt'
+    ]
+  },
+  balance: {
+    type: Number,
+    default: 0
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   currency: {
     type: String,
     default: 'TND',
+<<<<<<< HEAD
     enum: ['TND', 'EUR', 'USD'],
     uppercase: true
   },
@@ -205,4 +233,22 @@ accountSchema.statics.getBalanceSheet = async function(date = new Date()) {
   return { assets, liabilities, equity: assets - liabilities };
 };
 
+=======
+    enum: ['TND', 'EUR', 'USD']
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  description: String,
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
+}, {
+  timestamps: true
+});
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 module.exports = mongoose.model('Account', accountSchema);

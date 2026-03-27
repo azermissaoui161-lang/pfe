@@ -18,6 +18,7 @@ const getStockDashboard = async (req, res) => {
         $group: {
           _id: null,
           totalProducts: { $sum: 1 },
+<<<<<<< HEAD
           totalValue: { $sum: { $multiply: ['$stock', '$price'] } },
           totalSellingValue: { $sum: { $multiply: ['$stock', '$price'] } },
           totalItems: { $sum: '$stock' },
@@ -35,6 +36,25 @@ const getStockDashboard = async (req, res) => {
           },
           outOfStock: {
             $sum: { $cond: [{ $eq: ['$stock', 0] }, 1, 0] }
+=======
+          totalValue: { $sum: { $multiply: ['$currentStock', '$purchasePrice'] } },
+          totalSellingValue: { $sum: { $multiply: ['$currentStock', '$sellingPrice'] } },
+          totalItems: { $sum: '$currentStock' },
+          lowStock: { 
+            $sum: { 
+              $cond: [
+                { $and: [
+                  { $ne: ['$currentStock', 0] },
+                  { $lt: ['$currentStock', '$alertThreshold'] }
+                ]}, 
+                1, 
+                0
+              ]
+            } 
+          },
+          outOfStock: { 
+            $sum: { $cond: [{ $eq: ['$currentStock', 0] }, 1, 0] } 
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           }
         }
       }
@@ -47,6 +67,7 @@ const getStockDashboard = async (req, res) => {
         $group: {
           _id: '$category',
           count: { $sum: 1 },
+<<<<<<< HEAD
           totalValue: { $sum: { $multiply: ['$stock', '$price'] } },
           totalItems: { $sum: '$stock' }
         }
@@ -54,6 +75,25 @@ const getStockDashboard = async (req, res) => {
       {
         $project: {
           categoryName: '$_id',
+=======
+          totalValue: { $sum: { $multiply: ['$currentStock', '$purchasePrice'] } },
+          totalItems: { $sum: '$currentStock' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'categoryInfo'
+        }
+      },
+      { $unwind: { path: '$categoryInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          categoryId: '$_id',
+          categoryName: { $ifNull: ['$categoryInfo.name', 'Sans catégorie'] },
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           count: 1,
           totalValue: 1,
           totalItems: 1
@@ -64,6 +104,7 @@ const getStockDashboard = async (req, res) => {
 
     // ==================== PRODUITS EN STOCK FAIBLE ====================
     const lowStockProducts = await Product.find({
+<<<<<<< HEAD
       $expr: {
         $and: [
           { $gt: ['$stock', 0] },
@@ -79,6 +120,25 @@ const getStockDashboard = async (req, res) => {
     const outOfStockProducts = await Product.find({ stock: 0, isActive: true })
       .populate('supplierId', 'name phone email')
       .select('name sku price supplierId')
+=======
+      $expr: { 
+        $and: [
+          { $gt: ['$currentStock', 0] },
+          { $lt: ['$currentStock', '$alertThreshold'] }
+        ]
+      }
+    })
+    .populate('supplier', 'name phone email')
+    .populate('category', 'name')
+    .select('name sku currentStock alertThreshold sellingPrice supplier category')
+    .limit(20);
+
+    // ==================== PRODUITS EN RUPTURE ====================
+    const outOfStockProducts = await Product.find({ currentStock: 0, isActive: true })
+      .populate('supplier', 'name phone email')
+      .populate('category', 'name')
+      .select('name sku sellingPrice supplier category')
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       .limit(20);
 
     // ==================== MOUVEMENTS RÉCENTS ====================
@@ -181,10 +241,18 @@ const getStockDashboard = async (req, res) => {
 
     // ==================== PRODUITS LES PLUS RÉCEMMENT AJOUTÉS ====================
     const recentlyAdded = await Product.find({ isActive: true })
+<<<<<<< HEAD
       .populate('supplierId', 'name')
       .sort({ createdAt: -1 })
       .limit(10)
       .select('name sku stock price supplierId createdAt');
+=======
+      .populate('supplier', 'name')
+      .populate('category', 'name')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('name sku currentStock sellingPrice supplier category createdAt');
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 
     // ==================== STATISTIQUES FOURNISSEURS ====================
     const supplierStats = await Supplier.aggregate([
@@ -192,7 +260,11 @@ const getStockDashboard = async (req, res) => {
         $lookup: {
           from: 'products',
           localField: '_id',
+<<<<<<< HEAD
           foreignField: 'supplierId',
+=======
+          foreignField: 'supplier',
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           as: 'products'
         }
       },
@@ -205,7 +277,11 @@ const getStockDashboard = async (req, res) => {
               $map: {
                 input: '$products',
                 as: 'product',
+<<<<<<< HEAD
                 in: { $multiply: ['$$product.stock', '$$product.price'] }
+=======
+                in: { $multiply: ['$$product.currentStock', '$$product.purchasePrice'] }
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
               }
             }
           }
@@ -218,11 +294,19 @@ const getStockDashboard = async (req, res) => {
 
     // ==================== VALEUR TOTALE DU STOCK PAR FOURNISSEUR ====================
     const valueBySupplier = await Product.aggregate([
+<<<<<<< HEAD
       { $match: { isActive: true, supplierId: { $ne: null } } },
       {
         $group: {
           _id: '$supplierId',
           totalValue: { $sum: { $multiply: ['$stock', '$price'] } },
+=======
+      { $match: { isActive: true, supplier: { $ne: null } } },
+      {
+        $group: {
+          _id: '$supplier',
+          totalValue: { $sum: { $multiply: ['$currentStock', '$purchasePrice'] } },
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           productCount: { $sum: 1 }
         }
       },
@@ -252,15 +336,33 @@ const getStockDashboard = async (req, res) => {
       {
         $group: {
           _id: '$category',
+<<<<<<< HEAD
           totalValue: { $sum: { $multiply: ['$stock', '$price'] } },
+=======
+          totalValue: { $sum: { $multiply: ['$currentStock', '$purchasePrice'] } },
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           productCount: { $sum: 1 }
         }
       },
       { $sort: { totalValue: -1 } },
       { $limit: 5 },
       {
+<<<<<<< HEAD
         $project: {
           categoryName: '$_id',
+=======
+        $lookup: {
+          from: 'categories',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'categoryInfo'
+        }
+      },
+      { $unwind: { path: '$categoryInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          categoryName: { $ifNull: ['$categoryInfo.name', 'Sans catégorie'] },
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           totalValue: 1,
           productCount: 1
         }
@@ -279,9 +381,15 @@ const getStockDashboard = async (req, res) => {
         products: lowStockProducts.map(p => ({
           name: p.name,
           sku: p.sku,
+<<<<<<< HEAD
           stock: p.stock,
           minStock: p.minStock,
           supplier: p.supplierId?.name
+=======
+          stock: p.currentStock,
+          threshold: p.alertThreshold,
+          supplier: p.supplier?.name
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         }))
       });
     }
@@ -295,7 +403,11 @@ const getStockDashboard = async (req, res) => {
         products: outOfStockProducts.map(p => ({
           name: p.name,
           sku: p.sku,
+<<<<<<< HEAD
           supplier: p.supplierId?.name
+=======
+          supplier: p.supplier?.name
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         }))
       });
     }
@@ -416,6 +528,7 @@ const getMovements = async (req, res) => {
 const getLowStock = async (req, res) => {
   try {
     const products = await Product.find({
+<<<<<<< HEAD
       $expr: {
         $and: [
           { $gt: ['$stock', 0] },
@@ -425,6 +538,18 @@ const getLowStock = async (req, res) => {
     })
     .populate('supplierId', 'name phone email')
     .sort({ stock: 1 });
+=======
+      $expr: { 
+        $and: [
+          { $gt: ['$currentStock', 0] },
+          { $lt: ['$currentStock', '$alertThreshold'] }
+        ]
+      }
+    })
+    .populate('supplier', 'name phone email')
+    .populate('category', 'name')
+    .sort({ currentStock: 1 });
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 
     res.json({
       success: true,

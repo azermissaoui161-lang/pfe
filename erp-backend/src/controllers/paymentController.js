@@ -347,7 +347,11 @@ const validatePayment = async (req, res) => {
     // Notification
     await createNotification(
       req.user.id,
+<<<<<<< HEAD
       'paiement_recu',
+=======
+      'paiement_valide',
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
       '✅ Paiement validé',
       `Le paiement ${payment.paymentNumber} a été validé`,
       { paymentId: payment._id, paymentNumber: payment.paymentNumber }
@@ -427,6 +431,7 @@ const getPaymentStats = async (req, res) => {
   }
 };
 
+<<<<<<< HEAD
 // @desc    Annuler un paiement
 // @route   POST /api/payments/:id/cancel
 const cancelPayment = async (req, res) => {
@@ -500,6 +505,8 @@ const exportPayments = async (req, res) => {
   }
 };
 
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 // Fonction utilitaire pour générer numéro de paiement
 const generatePaymentNumber = async () => {
   const date = new Date();
@@ -517,7 +524,11 @@ module.exports = {
   updatePayment,
   deletePayment,
   validatePayment,
+<<<<<<< HEAD
   getPaymentStats,
   cancelPayment,
   exportPayments
+=======
+  getPaymentStats
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 };

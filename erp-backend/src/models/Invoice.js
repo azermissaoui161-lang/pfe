@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // models/Invoice.js
 const mongoose = require('mongoose');
 
@@ -13,31 +14,56 @@ const invoiceItemSchema = new mongoose.Schema({
     required: [true, 'La description est requise'],
     trim: true,
     maxlength: [255, 'La description ne peut pas dépasser 255 caractères']
+=======
+const mongoose = require('mongoose');
+
+const invoiceItemSchema = new mongoose.Schema({
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  },
+  description: {
+    type: String,
+    required: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   quantity: {
     type: Number,
     required: true,
+<<<<<<< HEAD
     min: [1, 'La quantité doit être au moins 1'],
     validate: {
       validator: Number.isInteger,
       message: 'La quantité doit être un nombre entier'
     }
+=======
+    min: [1, 'La quantité doit être au moins 1']
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   unitPrice: {
     type: Number,
     required: true,
+<<<<<<< HEAD
     min: [0, 'Le prix unitaire ne peut pas être négatif'],
     set: v => Math.round(v * 100) / 100 // Arrondi à 2 décimales
+=======
+    min: [0, 'Le prix unitaire ne peut pas être négatif']
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   taxRate: {
     type: Number,
     default: 20,
+<<<<<<< HEAD
     enum: [0, 2.1, 5.5, 10, 20],
     set: v => Math.round(v * 10) / 10 // Arrondi à 1 décimale
+=======
+    enum: [0, 5.5, 10, 20]
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   discount: {
     type: Number,
     default: 0,
+<<<<<<< HEAD
     min: [0, 'La remise ne peut pas être négative'],
     max: [100, 'La remise ne peut pas dépasser 100%']
   },
@@ -59,10 +85,20 @@ const invoiceItemSchema = new mongoose.Schema({
 invoiceItemSchema.index({ product: 1 });
 
 // Schéma principal de la facture
+=======
+    min: 0,
+    max: 100
+  },
+  totalHT: Number,
+  totalTTC: Number
+});
+
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 const invoiceSchema = new mongoose.Schema({
   invoiceNumber: {
     type: String,
     required: true,
+<<<<<<< HEAD
     unique: true,
     index: true
   },
@@ -74,16 +110,29 @@ const invoiceSchema = new mongoose.Schema({
     },
     default: 'facture',
     required: true
+=======
+    unique: true
+  },
+  type: {
+    type: String,
+    enum: ['facture', 'avoir', 'acompte'],
+    default: 'facture'
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   customer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Customer',
+<<<<<<< HEAD
     required: [true, 'Le client est requis'],
     index: true
+=======
+    required: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   date: {
     type: Date,
     required: true,
+<<<<<<< HEAD
     default: Date.now,
     index: true
   },
@@ -120,10 +169,28 @@ const invoiceSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'La TVA ne peut pas être négative'],
     set: v => Math.round(v * 100) / 100
+=======
+    default: Date.now
+  },
+  dueDate: {
+    type: Date,
+    required: true
+  },
+  items: [invoiceItemSchema],
+  subtotalHT: {
+    type: Number,
+    required: true,
+    default: 0
+  },
+  totalTax: {
+    type: Number,
+    default: 0
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   totalTTC: {
     type: Number,
     required: true,
+<<<<<<< HEAD
     default: 0,
     min: [0, 'Le total TTC ne peut pas être négatif'],
     set: v => Math.round(v * 100) / 100
@@ -181,11 +248,37 @@ const invoiceSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
     index: true
+=======
+    default: 0
+  },
+  amountPaid: {
+    type: Number,
+    default: 0
+  },
+  amountDue: {
+    type: Number,
+    default: 0
+  },
+  status: {
+    type: String,
+    enum: ['brouillon', 'envoyée', 'payée', 'partiellement_payée', 'en_retard', 'annulée'],
+    default: 'brouillon'
+  },
+  paymentMethod: String,
+  paidAt: Date,
+  notes: String,
+  termsAndConditions: String,
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   },
   validatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+<<<<<<< HEAD
   validatedAt: Date,
   cancelledBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -420,3 +513,47 @@ invoiceSchema.statics.findOverdue = function() {
 };
 
 module.exports = mongoose.model('Invoice', invoiceSchema);
+=======
+  validatedAt: Date
+}, {
+  timestamps: true
+});
+
+invoiceSchema.pre('save', async function() {
+  if (this.isNew) {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const count = await mongoose.model('Invoice').countDocuments();
+    this.invoiceNumber = `FACT-${year}${month}-${String(count + 1).padStart(5, '0')}`;
+  }
+});
+
+invoiceSchema.pre('save', function(next) {
+  let subtotalHT = 0;
+  let totalTax = 0;
+  
+  this.items.forEach(item => {
+    const itemHT = item.quantity * item.unitPrice * (1 - item.discount / 100);
+    const itemTax = itemHT * (item.taxRate / 100);
+    
+    item.totalHT = itemHT;
+    item.totalTTC = itemHT + itemTax;
+    
+    subtotalHT += itemHT;
+    totalTax += itemTax;
+  });
+  
+  this.subtotalHT = subtotalHT;
+  this.totalTax = totalTax;
+  this.totalTTC = subtotalHT + totalTax;
+  this.amountDue = this.totalTTC - this.amountPaid;
+  
+  next();
+});
+
+invoiceSchema.index({ customer: 1, date: -1 });
+invoiceSchema.index({ status: 1 });
+
+module.exports = mongoose.model('Invoice', invoiceSchema);
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8

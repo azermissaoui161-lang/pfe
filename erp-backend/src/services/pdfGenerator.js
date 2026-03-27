@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 class PDFGenerator {
+<<<<<<< HEAD
   // Méthode utilitaire pour gérer les sauts de page
   static _checkPageBreak(doc, y, margin = 100) {
     if (y > doc.page.height - margin) {
@@ -12,6 +13,8 @@ class PDFGenerator {
     return y;
   }
 
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   // Générer une facture PDF
   static async generateInvoice(invoice, customer, items) {
     return new Promise((resolve, reject) => {
@@ -25,13 +28,17 @@ class PDFGenerator {
           resolve(pdfData);
         });
 
+<<<<<<< HEAD
         // Logo (si disponible)
         // doc.image('path/to/logo.png', 50, 45, { width: 50 });
 
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         // En-tête
         doc.fontSize(20).text('FACTURE', { align: 'center' });
         doc.moveDown();
         
+<<<<<<< HEAD
         // Informations société
         doc.fontSize(8).font('Helvetica');
         doc.text('ERP System', 50, 45);
@@ -62,12 +69,33 @@ class PDFGenerator {
         // Tableau des articles
         let y = doc.y;
         const tableTop = y;
+=======
+        // Informations facture
+        doc.fontSize(10);
+        doc.text(`N° Facture: ${invoice.invoiceNumber}`);
+        doc.text(`Date: ${new Date(invoice.createdAt).toLocaleDateString()}`);
+        doc.text(`Échéance: ${new Date(invoice.dueDate).toLocaleDateString()}`);
+        doc.moveDown();
+
+        // Informations client
+        doc.fontSize(12).text('Client:', { underline: true });
+        doc.fontSize(10);
+        doc.text(customer.name);
+        if (customer.email) doc.text(`Email: ${customer.email}`);
+        if (customer.phone) doc.text(`Tél: ${customer.phone}`);
+        if (customer.address) doc.text(`Adresse: ${customer.address}`);
+        doc.moveDown();
+
+        // Tableau des articles
+        const tableTop = doc.y;
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         const itemX = 50;
         const descX = 150;
         const qtyX = 350;
         const priceX = 400;
         const totalX = 470;
 
+<<<<<<< HEAD
         // Ligne de séparation
         doc.moveTo(50, y).lineTo(550, y).stroke();
         y += 10;
@@ -112,11 +140,34 @@ class PDFGenerator {
         // Totaux
         y = this._checkPageBreak(doc, y);
         
+=======
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Article', itemX, tableTop);
+        doc.text('Description', descX, tableTop);
+        doc.text('Qté', qtyX, tableTop);
+        doc.text('P.U.', priceX, tableTop);
+        doc.text('Total', totalX, tableTop);
+        doc.font('Helvetica');
+
+        let y = tableTop + 20;
+        items.forEach(item => {
+          doc.text(item.product.name.substring(0, 20), itemX, y);
+          doc.text(item.product.description?.substring(0, 30) || '-', descX, y);
+          doc.text(item.quantity.toString(), qtyX, y);
+          doc.text(`${item.unitPrice.toFixed(3)} DT`, priceX, y);
+          doc.text(`${item.totalPrice.toFixed(3)} DT`, totalX, y);
+          y += 20;
+        });
+
+        // Totaux
+        y += 10;
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         doc.font('Helvetica-Bold');
         doc.text(`Sous-total: ${invoice.subtotal.toFixed(3)} DT`, 400, y);
         y += 20;
         doc.text(`TVA (19%): ${invoice.tax.toFixed(3)} DT`, 400, y);
         y += 20;
+<<<<<<< HEAD
         doc.fontSize(12).fillColor('#0000ff').text(`TOTAL TTC: ${invoice.total.toFixed(3)} DT`, 400, y);
 
         // Conditions de paiement
@@ -125,11 +176,18 @@ class PDFGenerator {
         doc.fontSize(8).fillColor('#000000');
         doc.text('Conditions de paiement: Paiement à réception', 50, y);
         doc.text('IBAN: TN59 1234 5678 9012 3456 7890', 50, y + 15);
+=======
+        doc.fontSize(12).text(`TOTAL: ${invoice.total.toFixed(3)} DT`, 400, y);
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
 
         // Pied de page
         doc.fontSize(8).font('Helvetica');
         doc.text(
+<<<<<<< HEAD
           'Document généré automatiquement - ERP System - Merci de votre confiance',
+=======
+          'Document généré automatiquement - ERP System',
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
           50,
           doc.page.height - 50,
           { align: 'center' }
@@ -142,6 +200,7 @@ class PDFGenerator {
     });
   }
 
+<<<<<<< HEAD
   // Générer un devis
   static async generateQuote(quote, customer, items) {
     return new Promise((resolve, reject) => {
@@ -179,6 +238,8 @@ class PDFGenerator {
     });
   }
 
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
   // Générer un rapport financier PDF
   static async generateFinancialReport(data, period) {
     return new Promise((resolve, reject) => {
@@ -201,11 +262,17 @@ class PDFGenerator {
         doc.fontSize(14).text('Trésorerie', { underline: true });
         doc.fontSize(12);
         doc.text(`Total: ${data.tresorerie.total.toFixed(3)} DT`);
+<<<<<<< HEAD
         if (data.tresorerie.details) {
           data.tresorerie.details.forEach(acc => {
             doc.text(`  ${acc.code} - ${acc.name}: ${acc.balance.toFixed(3)} DT`);
           });
         }
+=======
+        data.tresorerie.details.forEach(acc => {
+          doc.text(`  ${acc.code} - ${acc.name}: ${acc.balance.toFixed(3)} DT`);
+        });
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         doc.moveDown();
 
         // Créances
@@ -215,6 +282,7 @@ class PDFGenerator {
         doc.text(`Nombre de factures: ${data.creances.count}`);
         doc.moveDown();
 
+<<<<<<< HEAD
         // Dettes
         if (data.dettes) {
           doc.fontSize(14).text('Dettes Fournisseurs', { underline: true });
@@ -223,6 +291,8 @@ class PDFGenerator {
           doc.moveDown();
         }
 
+=======
+>>>>>>> 660161669da5cb0abf6942767dbd69ae6f42b4f8
         // Chiffre d'affaires
         doc.fontSize(14).text('Chiffre d\'affaires', { underline: true });
         doc.fontSize(12);
